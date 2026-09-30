@@ -19,6 +19,7 @@ use App\Http\Middleware\BranchMiddleware;
 // ═══════════════════════════════════════════════════════════════
 // ║  مسارات Webhook (Public)                                   ║
 // ═══════════════════════════════════════════════════════════════
+
 Route::post('/stripe/webhook', [PaymentController::class, 'handleWebhook'])
     ->name('stripe.webhook');
 
@@ -35,22 +36,32 @@ Route::post(
 // ═══════════════════════════════════════════════════════════════
 
 // إنشاء تذكرة دعم من صفحة "اتصل بنا" (Public)
-//Route::post('/support/tickets', [SupportTicketController::class, 'store']);
+// Route::post('/support/tickets', [SupportTicketController::class, 'store']);
 
-// نقطة عامة تمامًا — بدون auth أو صلاحيات، بس Rate Limited
 Route::prefix('support')->group(function () {
     Route::post('/tickets', [SupportTicketController::class, 'store'])
         ->middleware('throttle:support-ticket-create');
+
     Route::get('/tickets/track', [SupportTicketController::class, 'track'])
         ->middleware('throttle:support-ticket-track');
 });
 
 // التحقق من روابط الدفع
-Route::get("/payment-links/{token}/validate", [PaymentLinkController::class, "validateLink"]);
+Route::get(
+    '/payment-links/{token}/validate',
+    [PaymentLinkController::class, 'validateLink']
+);
+
+// ═══════════════════════════════════════════════════════════════
+// ║  Content Pages (Public)                                   ║
+// ═══════════════════════════════════════════════════════════════
+
+require __DIR__ . '/admin/content.php';
 
 // ═══════════════════════════════════════════════════════════════
 // ║  Auth (Public) — بدون sanctum                              ║
 // ═══════════════════════════════════════════════════════════════
+
 Route::prefix('admin')->group(function () {
     Route::post('login', [AuthController::class, 'login'])
         ->middleware('throttle:login');
@@ -68,28 +79,32 @@ Route::prefix('admin')->group(function () {
         ->middleware('throttle:login');
 });
 
+// ═══════════════════════════════════════════════════════════════
+// ║  Admin Routes                                              ║
+// ═══════════════════════════════════════════════════════════════
+
 Route::prefix('admin')->middleware([
     'check.idle',
-    //'idle.timeout',   // ✅ يجب أن يعمل قبل auth:sanctum مباشرة
+    //'idle.timeout',
     'auth:sanctum',
-    'check.sanctum',  // ✅ يتحقق من is_active ويحذف التوكن لو معطّل
+    'check.sanctum',
     'throttle:api',
-    'admin',          // ✅ يمنع الـ Client من الوصول لواجهة الأدمن
+    'admin',
 ])->group(function () {
 
     // ── Auth ────────────────────────────────────────────────
-    Route::post('logout',  [AuthController::class, 'logout']);
-    Route::get('me',       [AuthController::class, 'me']);
+    Route::post('logout', [AuthController::class, 'logout']);
+    Route::get('me', [AuthController::class, 'me']);
     Route::post('refresh', [AuthController::class, 'refresh']);
 
     // ── Profile ─────────────────────────────────────────────
-    Route::get('/me',               [UserController::class, 'profile']);
-    Route::put('/profile',          [UserController::class, 'updateProfile']);
+    Route::get('/me', [UserController::class, 'profile']);
+    Route::put('/profile', [UserController::class, 'updateProfile']);
     Route::post('/change-password', [UserController::class, 'changePassword']);
 
     // ── Logs ────────────────────────────────────────────────
     Route::get('/activity-logs', [ActivityLogController::class, 'index']);
-    Route::get('/otp-logs',      [OtpLogController::class, 'index']);
+    Route::get('/otp-logs', [OtpLogController::class, 'index']);
 
     // ── Includes ────────────────────────────────────────────
 
@@ -113,16 +128,4 @@ Route::prefix('admin')->middleware([
         require __DIR__ . '/admin/units.php';
         require __DIR__ . '/admin/tenants.php';
     });
-    // require __DIR__ . '/admin/clients.php';
-    // require __DIR__ . '/admin/invoices.php';
-    // require __DIR__ . '/admin/reports.php';
-    // require __DIR__ . '/admin/installments.php';
-    // require __DIR__ . '/admin/users.php';
-    // require __DIR__ . '/admin/dashboard.php';
-    // require __DIR__ . '/admin/permissions.php';
-    // require __DIR__ . '/admin/admin-groups.php';
-    // require __DIR__ . '/admin/payments.php';
-    // require __DIR__ . '/admin/recurring-invoices.php';
-    // require __DIR__ . '/admin/payment-links.php';
-    // require __DIR__ . '/admin/support.php';
 });
