@@ -186,4 +186,26 @@ class Constants
     const CREATE_TENANT = 'create_tenant';
     const EDIT_TENANT = 'edit_tenant';
     const DELETE_TENANT = 'delete_tenant';
+
+
+    // ═══════════════════════════════════════════════════════════════
+    // Contracts
+    // ═══════════════════════════════════════════════════════════════
+    const VIEW_CONTRACTS = 'view_contracts';
+    const CREATE_CONTRACT = 'create_contract';
+    const EDIT_CONTRACT = 'edit_contract';
+    const DELETE_CONTRACT = 'delete_contract';
+    const RENEW_CONTRACT = 'renew_contract';
+    const TERMINATE_CONTRACT = 'terminate_contract';
+
+    const CONTRACT_STATUS_DRAFT = 'draft';
+    const CONTRACT_STATUS_ACTIVE = 'active';
+    const CONTRACT_STATUS_EXPIRED = 'expired';
+    const CONTRACT_STATUS_TERMINATED = 'terminated';
+    const CONTRACT_STATUS_RENEWED = 'renewed';
+
+    const PAYMENT_FREQUENCY_MONTHLY = 'monthly';
+    const PAYMENT_FREQUENCY_QUARTERLY = 'quarterly';
+    const PAYMENT_FREQUENCY_SEMI_ANNUAL = 'semi_annual';
+    const PAYMENT_FREQUENCY_ANNUAL = 'annual';
 }
