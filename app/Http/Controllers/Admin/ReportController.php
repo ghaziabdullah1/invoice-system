@@ -144,7 +144,7 @@ class ReportController extends Controller
     public function export(Request $request, string $type): JsonResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         try {
-            if ($request->has('lang')) {
+            if (in_array($request->input('lang'), ['ar', 'en'], true)) {
                 app()->setLocale($request->input('lang'));
             }
 
@@ -318,13 +318,12 @@ class ReportController extends Controller
     {
         try {
             $request->validate([
-                'file_name' => 'required|string'
+                'file_name' => ['required', 'string', 'regex:/^[A-Za-z0-9_]+\.xlsx$/'],
             ]);
 
-            $fileName = $request->input('file_name');
-            $filePath = storage_path('app/public/exports/' . $fileName);
+            $filePath = storage_path('app/public/exports/' . $request->input('file_name'));
 
-            if (!file_exists($filePath)) {
+            if (!is_file($filePath)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'file_not_found'

@@ -1,13 +1,11 @@
 <?php
 
-// routes/admin/dashboard.php
-
+use App\Constants\Constants;
 use App\Http\Controllers\Admin\DashboardController;
-use Illuminate\Support\Facades\Route;
 use App\Http\Middleware\BranchMiddleware;
+use Illuminate\Support\Facades\Route;
 
-
-Route::middleware(['auth:sanctum', BranchMiddleware::class])->group(function () {
+Route::middleware(['auth:sanctum', BranchMiddleware::class, 'permission:' . Constants::VIEW_DASHBOARD])->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'dashboard']);
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
