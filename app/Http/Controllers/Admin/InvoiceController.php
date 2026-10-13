@@ -19,6 +19,16 @@ class InvoiceController extends Controller
         $this->invoiceRepository = $invoiceRepository;
     }
 
+    /**
+     * جلب الفاتورة مقيّدة بالفروع المسموح بها للمستخدم الحالي.
+     */
+    private function findAccessibleInvoice($id, array $with = []): ?Invoice
+    {
+        return Invoice::with($with)
+            ->inAllowedBranches(request()->attributes->get('allowed_branch_ids'))
+            ->find($id);
+    }
+
     public function index(Request $request)
     {
         $result = $this->invoiceRepository->index($request);
@@ -39,7 +49,7 @@ class InvoiceController extends Controller
 
     public function update(Request $request, $id)
     {
-        $invoice = Invoice::find($id);
+        $invoice = $this->findAccessibleInvoice($id);
         if (!$invoice) {
             return response()->json([
                 'status'  => false,
@@ -53,7 +63,7 @@ class InvoiceController extends Controller
 
     public function destroy($id)
     {
-        $invoice = Invoice::find($id);
+        $invoice = $this->findAccessibleInvoice($id);
         if (!$invoice) {
             return response()->json([
                 'status'  => false,
@@ -87,7 +97,7 @@ class InvoiceController extends Controller
 
     public function downloadPDF($id)
     {
-        $invoice = Invoice::find($id);
+        $invoice = $this->findAccessibleInvoice($id);
         if (!$invoice) {
             return response()->json([
                 'status'  => false,
@@ -101,7 +111,7 @@ class InvoiceController extends Controller
 
     public function duplicate($id)
     {
-        $invoice = Invoice::find($id);
+        $invoice = $this->findAccessibleInvoice($id);
         if (!$invoice) {
             return response()->json([
                 'status'  => false,
@@ -115,7 +125,7 @@ class InvoiceController extends Controller
 
     public function generatePDF($id)
     {
-        $invoice = Invoice::find($id);
+        $invoice = $this->findAccessibleInvoice($id);
         if (!$invoice) {
             return response()->json([
                 'status'  => false,
@@ -129,7 +139,7 @@ class InvoiceController extends Controller
 
     public function markAsPaid(Request $request, $id)
     {
-        $invoice = Invoice::find($id);
+        $invoice = $this->findAccessibleInvoice($id);
         if (!$invoice) {
             return response()->json([
                 'status'  => false,
@@ -143,7 +153,7 @@ class InvoiceController extends Controller
 
     public function send($id)
     {
-        $invoice = Invoice::find($id);
+        $invoice = $this->findAccessibleInvoice($id);
         if (!$invoice) {
             return response()->json([
                 'status'  => false,
@@ -161,7 +171,7 @@ class InvoiceController extends Controller
     public function getInstallmentPlan($id)
     {
         try {
-            $invoice = Invoice::with(['installmentPlan.installments', 'client'])->find($id);
+            $invoice = $this->findAccessibleInvoice($id, ['installmentPlan.installments', 'client']);
 
             if (!$invoice) {
                 return response()->json([

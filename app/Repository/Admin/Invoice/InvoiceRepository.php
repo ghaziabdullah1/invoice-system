@@ -99,6 +99,7 @@ class InvoiceRepository implements InvoiceInterface
             }
 
             $invoice = Invoice::with(['client', 'items', 'createdBy', 'payments', 'installmentPlan.installments'])
+                ->inAllowedBranches(request()->attributes->get('allowed_branch_ids'))
                 ->find((int) $id);
 
             if (!$invoice) {
@@ -139,6 +140,8 @@ class InvoiceRepository implements InvoiceInterface
 
             // ✅ تحقق من فريدية رقم الفاتورة
             if (Invoice::where('invoice_number', $invoiceNumber)->exists()) {
+                DB::rollBack();
+
                 return [
                     'status'  => false,
                     'message' => __('messages.unique', ['attribute' => 'رقم الفاتورة']),
@@ -167,6 +170,8 @@ class InvoiceRepository implements InvoiceInterface
             // ✅ الحصول على user_id من auth() - دائماً من auth()
             $userId = auth()->id();
             if (!$userId) {
+                DB::rollBack();
+
                 return [
                     'status'  => false,
                     'message' => 'المستخدم غير مسجل الدخول',
@@ -187,6 +192,20 @@ class InvoiceRepository implements InvoiceInterface
                 return [
                     'status'  => false,
                     'message' => 'ليس لديك صلاحية لإضافة فاتورة لهذا الفرع',
+                    'data'    => null,
+                ];
+            }
+
+            $clientIsAccessible = Client::inAllowedBranches($allowedBranchIds)
+                ->whereKey((int) $request->client_id)
+                ->exists();
+
+            if (!$clientIsAccessible) {
+                DB::rollBack();
+
+                return [
+                    'status'  => false,
+                    'message' => __('messages.client_not_found'),
                     'data'    => null,
                 ];
             }

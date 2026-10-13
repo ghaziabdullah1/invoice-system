@@ -86,6 +86,7 @@ class ClientRepository implements ClientInterface
                     $q->where('status', Constants::INVOICE_STATUS_OVERDUE);
                 }], 'total')
                 ->with('creator:id,name')
+                ->inAllowedBranches(request()->attributes->get('allowed_branch_ids'))
                 ->find((int) $id);
 
             if (!$client) {
