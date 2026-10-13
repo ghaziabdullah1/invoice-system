@@ -15,7 +15,6 @@ class PropertyRepository implements PropertyInterface
         try {
             $query = Property::withCount('floors')
                 ->with('creator:id,name')
-                ->when($request->attributes->get('selected_branch_id'), fn($q, $branchId) => $q->where('branch_id', $branchId))
                 ->orderBy('created_at', 'desc');
 
             if ($request->has('is_active') && $request->is_active !== '') {
@@ -50,7 +49,7 @@ class PropertyRepository implements PropertyInterface
                 return ['status' => false, 'message' => __('messages.property_not_found'), 'data' => null];
             }
 
-            $property = Property::withCount('floors')->with('creator:id,name', 'branch:id,name')->find((int) $id);
+            $property = Property::withCount('floors')->with('creator:id,name')->find((int) $id);
 
             if (!$property) {
                 return ['status' => false, 'message' => __('messages.property_not_found'), 'data' => null];
@@ -68,16 +67,6 @@ class PropertyRepository implements PropertyInterface
         DB::beginTransaction();
 
         try {
-            $branchId = $request->has('branch_id') && $request->branch_id
-                ? (int) $request->branch_id
-                : $request->attributes->get('selected_branch_id');
-
-            $allowedBranchIds = $request->attributes->get('allowed_branch_ids');
-            if ($branchId && is_array($allowedBranchIds) && !in_array((int) $branchId, $allowedBranchIds, true)) {
-                DB::rollBack();
-                return ['status' => false, 'message' => 'ليس لديك صلاحية لإضافة عقار لهذا الفرع', 'data' => null];
-            }
-
             $property = Property::create([
                 'name'       => $request->name,
                 'name_en'    => $request->name_en,
@@ -87,7 +76,6 @@ class PropertyRepository implements PropertyInterface
                 'email'      => $request->email,
                 'notes'      => $request->notes,
                 'is_active'  => $request->is_active ?? true,
-                'branch_id'  => $branchId ? (int) $branchId : null,
                 'created_by' => auth()->id(),
             ]);
 
@@ -110,7 +98,7 @@ class PropertyRepository implements PropertyInterface
         try {
             $oldValues = $property->toArray();
 
-            $allowedFields = ['name', 'name_en', 'address', 'city', 'phone', 'email', 'notes', 'is_active', 'branch_id'];
+            $allowedFields = ['name', 'name_en', 'address', 'city', 'phone', 'email', 'notes', 'is_active'];
 
             $updateData = [];
             foreach ($allowedFields as $field) {
@@ -121,18 +109,6 @@ class PropertyRepository implements PropertyInterface
 
             if (isset($updateData['is_active'])) {
                 $updateData['is_active'] = (bool) $updateData['is_active'];
-            }
-
-            if (array_key_exists('branch_id', $updateData)) {
-                $newBranchId = $updateData['branch_id'] ? (int) $updateData['branch_id'] : null;
-                $allowedBranchIds = $request->attributes->get('allowed_branch_ids');
-
-                if ($newBranchId && is_array($allowedBranchIds) && !in_array($newBranchId, $allowedBranchIds, true)) {
-                    DB::rollBack();
-                    return ['status' => false, 'message' => 'ليس لديك صلاحية لنقل العقار لهذا الفرع', 'data' => null];
-                }
-
-                $updateData['branch_id'] = $newBranchId;
             }
 
             $property->update($updateData);

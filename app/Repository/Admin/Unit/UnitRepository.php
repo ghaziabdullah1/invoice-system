@@ -15,9 +15,6 @@ class UnitRepository implements UnitInterface
     {
         try {
             $query = Unit::with('floor:id,name,property_id', 'tenant:id,unit_id,name')
-                ->whereHas('floor.property', function ($q) use ($request) {
-                    $q->when($request->attributes->get('selected_branch_id'), fn($qq, $branchId) => $qq->where('branch_id', $branchId));
-                })
                 ->orderBy('name');
 
             if ($request->has('floor_id') && $request->floor_id) {

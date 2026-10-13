@@ -156,7 +156,10 @@ class InstallmentPlanRepository implements InstallmentPlanInterface
     public function payInstallment(int $installmentId, string $paymentMethod = 'cash')
     {
         return DB::transaction(function () use ($installmentId, $paymentMethod) {
-            $installment = Installment::with('plan.invoice')->lockForUpdate()->findOrFail($installmentId);
+            $installment = Installment::with('plan.invoice')
+                ->whereHas('plan.invoice', fn ($q) => $q->inAllowedBranches(request()->attributes->get('allowed_branch_ids')))
+                ->lockForUpdate()
+                ->findOrFail($installmentId);
 
             if ($installment->status === 'paid') {
                 throw ValidationException::withMessages([

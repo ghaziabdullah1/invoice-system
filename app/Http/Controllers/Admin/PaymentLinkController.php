@@ -24,7 +24,7 @@ class PaymentLinkController extends Controller
      */
     public function index($invoiceId)
     {
-        $invoice = Invoice::find($invoiceId);
+        $invoice = Invoice::inAllowedBranches(request()->attributes->get('allowed_branch_ids'))->find($invoiceId);
 
         if (!$invoice) {
             return response()->json([
@@ -49,7 +49,7 @@ class PaymentLinkController extends Controller
      */
     public function createForInvoice(Request $request, $invoiceId)
     {
-        $invoice = Invoice::find($invoiceId);
+        $invoice = Invoice::inAllowedBranches(request()->attributes->get('allowed_branch_ids'))->find($invoiceId);
 
         if (!$invoice) {
             return response()->json([
@@ -88,7 +88,7 @@ class PaymentLinkController extends Controller
      */
     public function createForInstallment(Request $request, $invoiceId, $installmentNumber)
     {
-        $invoice = Invoice::find($invoiceId);
+        $invoice = Invoice::inAllowedBranches(request()->attributes->get('allowed_branch_ids'))->find($invoiceId);
 
         if (!$invoice) {
             return response()->json([
@@ -128,7 +128,8 @@ class PaymentLinkController extends Controller
      */
     public function sendLink($linkId)
     {
-        $link = PaymentLink::find($linkId);
+        $link = PaymentLink::whereHas('invoice', fn ($q) => $q->inAllowedBranches(request()->attributes->get('allowed_branch_ids')))
+            ->find($linkId);
 
         if (!$link) {
             return response()->json([

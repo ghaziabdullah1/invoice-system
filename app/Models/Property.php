@@ -12,17 +12,12 @@ class Property extends Model
 
     protected $fillable = [
         'name', 'name_en', 'address', 'city', 'phone', 'email',
-        'notes', 'is_active', 'branch_id', 'created_by',
+        'notes', 'is_active', 'created_by',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
     ];
-
-    public function branch()
-    {
-        return $this->belongsTo(Branch::class);
-    }
 
     public function creator()
     {

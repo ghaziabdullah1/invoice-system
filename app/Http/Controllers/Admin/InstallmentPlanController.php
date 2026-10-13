@@ -33,6 +33,10 @@ class InstallmentPlanController extends Controller
             return $this->failureResponse(__('messages.no_permission'), null, Constants::RESPONSE_FORBIDDEN);
         }
 
+        if (!$invoice->isInAllowedBranches(request()->attributes->get('allowed_branch_ids'))) {
+            return $this->notFoundResponse();
+        }
+
         $plan = $this->installmentPlanRepository->findForInvoice($invoice);
 
         if (!$plan) {
@@ -60,6 +64,10 @@ class InstallmentPlanController extends Controller
     {
         if (!PermissionHelper::checkPermission(Constants::CREATE_INSTALLMENT)) {
             return $this->failureResponse(__('messages.no_permission'), null, Constants::RESPONSE_FORBIDDEN);
+        }
+
+        if (!$invoice->isInAllowedBranches(request()->attributes->get('allowed_branch_ids'))) {
+            return $this->notFoundResponse();
         }
 
         try {
@@ -102,6 +110,10 @@ class InstallmentPlanController extends Controller
     {
         if (!PermissionHelper::checkPermission(Constants::EDIT_INVOICE)) {
             return $this->failureResponse(__('messages.no_permission'), null, Constants::RESPONSE_FORBIDDEN);
+        }
+
+        if (!$installmentPlan->invoice?->isInAllowedBranches(request()->attributes->get('allowed_branch_ids'))) {
+            return $this->notFoundResponse();
         }
 
         try {

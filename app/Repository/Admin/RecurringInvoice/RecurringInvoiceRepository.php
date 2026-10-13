@@ -2,6 +2,7 @@
 
 namespace App\Repository\Admin\RecurringInvoice;
 
+use App\Models\Client;
 use App\Models\RecurringInvoiceTemplate;
 use App\Models\RecurringInvoiceItem;
 use App\Models\ActivityLog;
@@ -16,6 +17,7 @@ class RecurringInvoiceRepository implements RecurringInvoiceInterface
     {
         try {
             $query = RecurringInvoiceTemplate::with(['client', 'items'])
+                ->inAllowedBranches(request()->attributes->get('allowed_branch_ids'))
                 ->orderBy('created_at', 'desc');
 
             if ($request->has('status') && !empty($request->status)) {
@@ -49,6 +51,7 @@ class RecurringInvoiceRepository implements RecurringInvoiceInterface
     {
         try {
             $template = RecurringInvoiceTemplate::with(['client', 'items', 'generatedInvoices'])
+                ->inAllowedBranches(request()->attributes->get('allowed_branch_ids'))
                 ->find((int) $id);
 
             if (!$template) {
@@ -103,6 +106,20 @@ class RecurringInvoiceRepository implements RecurringInvoiceInterface
                 return [
                     'status'  => false,
                     'message' => 'يجب إضافة عنصر واحد على الأقل للقالب',
+                    'data'    => null,
+                ];
+            }
+
+            $clientIsAccessible = Client::inAllowedBranches(request()->attributes->get('allowed_branch_ids'))
+                ->whereKey((int) $request->client_id)
+                ->exists();
+
+            if (!$clientIsAccessible) {
+                DB::rollBack();
+
+                return [
+                    'status'  => false,
+                    'message' => __('messages.client_not_found'),
                     'data'    => null,
                 ];
             }

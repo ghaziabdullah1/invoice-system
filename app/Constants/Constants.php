@@ -208,4 +208,6 @@ class Constants
     const PAYMENT_FREQUENCY_QUARTERLY = 'quarterly';
     const PAYMENT_FREQUENCY_SEMI_ANNUAL = 'semi_annual';
     const PAYMENT_FREQUENCY_ANNUAL = 'annual';
+
+    const VIEW_ACTIVITY_LOGS = 'view_activity_logs';
 }

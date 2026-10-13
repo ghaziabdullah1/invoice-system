@@ -22,7 +22,6 @@ class StorePropertyRequest extends FormRequest
             'email'     => ['nullable', 'email', 'max:255'],
             'notes'     => ['nullable', 'string'],
             'is_active' => ['boolean'],
-            'branch_id' => ['nullable', 'exists:branches,id'],
         ];
     }
 }

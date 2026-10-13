@@ -14,10 +14,6 @@ class TenantRepository implements TenantInterface
     {
         try {
             $query = Tenant::with('unit:id,name,floor_id')
-                ->whereHas('unit.floor.property', function ($q) use ($request) {
-                    $q->when($request->attributes->get('selected_branch_id'), fn($qq, $branchId) => $qq->where('branch_id', $branchId));
-                }, '>=', 0)
-                ->orWhereNull('unit_id')
                 ->orderBy('created_at', 'desc');
 
             if ($request->has('unit_id') && $request->unit_id) {
@@ -159,6 +155,7 @@ class TenantRepository implements TenantInterface
             $tenantId   = $tenant->id;
 
             ActivityLog::log('DELETE', __('messages.tenant_deleted') . ': ' . $tenantName, $tenant);
+            $tenant->update(['unit_id' => null]);
             $tenant->delete();
 
             DB::commit();

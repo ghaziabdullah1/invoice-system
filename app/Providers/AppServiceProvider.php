@@ -131,26 +131,5 @@ class AppServiceProvider extends ServiceProvider
 
         // Set global pagination limit
         \Illuminate\Pagination\Paginator::useBootstrap();
-
-        // تنظيف الملفات القديمة تلقائياً
-        $this->cleanupOldExports();
-    }
-
-    private function cleanupOldExports()
-    {
-        if (app()->runningInConsole()) {
-            return;
-        }
-
-        try {
-            $exportService = app(ExportService::class);
-            $deleted = $exportService->cleanupOldFiles(7);
-
-            if ($deleted > 0) {
-                \Log::info("تم تنظيف {$deleted} ملف تصدير قديم تلقائياً.");
-            }
-        } catch (\Exception $e) {
-            \Log::error('فشل في تنظيف الملفات القديمة: ' . $e->getMessage());
-        }
     }
 }

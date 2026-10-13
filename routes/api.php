@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Constants\Constants;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ActivityLogController;
@@ -103,7 +104,8 @@ Route::prefix('admin')->middleware([
     Route::post('/change-password', [UserController::class, 'changePassword']);
 
     // ── Logs ────────────────────────────────────────────────
-    Route::get('/activity-logs', [ActivityLogController::class, 'index']);
+    Route::get('/activity-logs', [ActivityLogController::class, 'index'])
+        ->middleware('permission:' . Constants::VIEW_ACTIVITY_LOGS);
     Route::get('/otp-logs', [OtpLogController::class, 'index']);
 
     // ── Includes ────────────────────────────────────────────
@@ -123,9 +125,11 @@ Route::prefix('admin')->middleware([
         require __DIR__ . '/admin/recurring-invoices.php';
         require __DIR__ . '/admin/payment-links.php';
         require __DIR__ . '/admin/support.php';
-        require __DIR__ . '/admin/properties.php';
-        require __DIR__ . '/admin/floors.php';
-        require __DIR__ . '/admin/units.php';
-        require __DIR__ . '/admin/tenants.php';
     });
+
+    // وحدة العقارات مستقلة عن الفروع: لا تمر عبر BranchMiddleware
+    require __DIR__ . '/admin/properties.php';
+    require __DIR__ . '/admin/floors.php';
+    require __DIR__ . '/admin/units.php';
+    require __DIR__ . '/admin/tenants.php';
 });

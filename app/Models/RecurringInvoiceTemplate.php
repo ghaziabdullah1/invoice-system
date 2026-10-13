@@ -52,6 +52,17 @@ class RecurringInvoiceTemplate extends Model
     // Scopes
     // ================================================================
 
+    /**
+     * تقييد القوالب بالفروع المسموحة عبر فرع العميل (لا يوجد branch_id في القوالب).
+     */
+    public function scopeInAllowedBranches($query, ?array $branchIds)
+    {
+        return $query->when(
+            is_array($branchIds),
+            fn ($q) => $q->whereHas('client', fn ($client) => $client->inAllowedBranches($branchIds))
+        );
+    }
+
     public function scopeActive($query)
     {
         return $query->where('status', 'active');

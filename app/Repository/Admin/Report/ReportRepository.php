@@ -371,7 +371,9 @@ class ReportRepository implements ReportInterface
 
     public function sendInvoiceReminder(int $invoiceId): array
     {
-        $invoice = Invoice::with('client:id,name,email')->findOrFail($invoiceId);
+        $invoice = Invoice::with('client:id,name,email')
+            ->inAllowedBranches(request()->attributes->get('allowed_branch_ids'))
+            ->findOrFail($invoiceId);
 
         return [
             'message' => 'تم إرسال التذكير بنجاح',
@@ -384,7 +386,9 @@ class ReportRepository implements ReportInterface
         DB::beginTransaction();
 
         try {
-            $invoice = Invoice::with('client:id,name,email,currency')->findOrFail($invoiceId);
+            $invoice = Invoice::with('client:id,name,email,currency')
+                ->inAllowedBranches(request()->attributes->get('allowed_branch_ids'))
+                ->findOrFail($invoiceId);
 
             if ($invoice->status === Constants::INVOICE_STATUS_PAID) {
                 throw new \Exception('الفاتورة مدفوعة بالفعل');

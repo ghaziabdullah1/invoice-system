@@ -16,9 +16,6 @@ class FloorRepository implements FloorInterface
         try {
             $query = Floor::withCount('units')
                 ->with('property:id,name')
-                ->whereHas('property', function ($q) use ($request) {
-                    $q->when($request->attributes->get('selected_branch_id'), fn($qq, $branchId) => $qq->where('branch_id', $branchId));
-                })
                 ->orderBy('floor_number');
 
             if ($request->has('property_id') && $request->property_id) {
@@ -82,12 +79,6 @@ class FloorRepository implements FloorInterface
             if (!$property) {
                 DB::rollBack();
                 return ['status' => false, 'message' => __('messages.property_not_found'), 'data' => null];
-            }
-
-            $allowedBranchIds = $request->attributes->get('allowed_branch_ids');
-            if ($property->branch_id && is_array($allowedBranchIds) && !in_array((int) $property->branch_id, $allowedBranchIds, true)) {
-                DB::rollBack();
-                return ['status' => false, 'message' => 'ليس لديك صلاحية على هذا العقار', 'data' => null];
             }
 
             $floor = Floor::create([

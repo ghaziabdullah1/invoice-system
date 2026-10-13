@@ -36,7 +36,7 @@ class RecurringInvoiceController extends Controller
 
     public function update(Request $request, $id)
     {
-        $template = RecurringInvoiceTemplate::find($id);
+        $template = RecurringInvoiceTemplate::inAllowedBranches(request()->attributes->get('allowed_branch_ids'))->find($id);
         if (!$template) {
             return response()->json(['status' => false, 'message' =>'not_found'], 404);
         }
@@ -47,7 +47,7 @@ class RecurringInvoiceController extends Controller
 
     public function destroy($id)
     {
-        $template = RecurringInvoiceTemplate::find($id);
+        $template = RecurringInvoiceTemplate::inAllowedBranches(request()->attributes->get('allowed_branch_ids'))->find($id);
         if (!$template) {
             return response()->json(['status' => false, 'message' =>'not_found'], 404);
         }
@@ -58,7 +58,7 @@ class RecurringInvoiceController extends Controller
 
     public function generateNow($id)
     {
-        $template = RecurringInvoiceTemplate::find($id);
+        $template = RecurringInvoiceTemplate::inAllowedBranches(request()->attributes->get('allowed_branch_ids'))->find($id);
         if (!$template) {
             return response()->json(['status' => false, 'message' =>'not_found'], 404);
         }
@@ -69,7 +69,7 @@ class RecurringInvoiceController extends Controller
 
     public function cancel($id)
     {
-        $template = RecurringInvoiceTemplate::find($id);
+        $template = RecurringInvoiceTemplate::inAllowedBranches(request()->attributes->get('allowed_branch_ids'))->find($id);
         if (!$template) {
             return response()->json(['status' => false, 'message' =>'not_found'], 404);
         }

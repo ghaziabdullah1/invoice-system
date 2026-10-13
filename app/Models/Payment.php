@@ -54,6 +54,17 @@ class Payment extends Model
     // Scopes
     // ================================================================
 
+    /**
+     * تقييد المدفوعات بالفروع المسموحة عبر فاتورتها (لا يوجد branch_id في المدفوعات).
+     */
+    public function scopeInAllowedBranches($query, ?array $branchIds)
+    {
+        return $query->when(
+            is_array($branchIds),
+            fn ($q) => $q->whereHas('invoice', fn ($invoice) => $invoice->inAllowedBranches($branchIds))
+        );
+    }
+
     public function scopePending($query)
     {
         return $query->where('status', Constants::PAYMENT_STATUS_PENDING);

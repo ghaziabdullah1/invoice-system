@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin\Tenant;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreTenantRequest extends FormRequest
 {
@@ -14,7 +15,7 @@ class StoreTenantRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'unit_id'   => ['nullable', 'exists:units,id'],
+            'unit_id'   => ['nullable', Rule::exists('units', 'id')->whereNull('deleted_at')],
             'name'      => ['required', 'string', 'max:255'],
             'email'     => ['nullable', 'email', 'max:255'],
             'phone'     => ['nullable', 'string', 'max:20'],

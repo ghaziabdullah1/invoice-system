@@ -33,7 +33,9 @@ class PaymentController extends Controller
             );
         }
 
-        $invoice = Invoice::with('client')->find($invoiceId);
+        $invoice = Invoice::with('client')
+            ->inAllowedBranches(request()->attributes->get('allowed_branch_ids'))
+            ->find($invoiceId);
 
         if (!$invoice) {
             return $this->failureResponse(

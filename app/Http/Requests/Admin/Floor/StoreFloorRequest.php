@@ -15,13 +15,13 @@ class StoreFloorRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'property_id'  => ['required', 'exists:properties,id'],
+            'property_id'  => ['required', Rule::exists('properties', 'id')->whereNull('deleted_at')],
             'name'         => ['required', 'string', 'max:255'],
             'name_en'      => ['nullable', 'string', 'max:255'],
             'floor_number' => [
                 'required',
                 'integer',
-                Rule::unique('floors')->where(fn ($q) => $q->where('property_id', $this->property_id)),
+                Rule::unique('floors')->where(fn ($q) => $q->where('property_id', $this->property_id)->whereNull('deleted_at')),
             ],
             'description'  => ['nullable', 'string'],
             'is_active'    => ['boolean'],

@@ -15,4 +15,12 @@ trait BranchScoped
             fn ($q) => $q->whereIn($this->qualifyColumn('branch_id'), $branchIds)
         );
     }
+
+    /**
+     * هل هذا السجل ضمن الفروع المسموح بها؟ (null = بلا تقييد)
+     */
+    public function isInAllowedBranches(?array $branchIds): bool
+    {
+        return !is_array($branchIds) || in_array($this->branch_id, $branchIds, true);
+    }
 }

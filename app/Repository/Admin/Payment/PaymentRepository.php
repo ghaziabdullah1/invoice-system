@@ -156,7 +156,9 @@ class PaymentRepository implements PaymentInterface
     public function getPayment(int $id): array
     {
         try {
-            $payment = Payment::with(['invoice', 'client'])->findOrFail($id);
+            $payment = Payment::with(['invoice', 'client'])
+                ->inAllowedBranches(request()->attributes->get('allowed_branch_ids'))
+                ->findOrFail($id);
             return ['status' => true, 'message' => 'Payment retrieved', 'data' => $payment];
         } catch (\Exception $e) {
             return ['status' => false, 'message' => 'Payment not found', 'data' => null];
@@ -166,7 +168,8 @@ class PaymentRepository implements PaymentInterface
     public function getPayments(Request $request): array
     {
         try {
-            $query = Payment::with(['invoice', 'client']);
+            $query = Payment::with(['invoice', 'client'])
+                ->inAllowedBranches(request()->attributes->get('allowed_branch_ids'));
 
             if ($request->search) {
                 $query->search($request->search);
@@ -203,7 +206,8 @@ class PaymentRepository implements PaymentInterface
     public function refundPayment(int $id, ?float $amount): array
     {
         try {
-            $payment = Payment::findOrFail($id);
+            $payment = Payment::inAllowedBranches(request()->attributes->get('allowed_branch_ids'))
+                ->findOrFail($id);
 
             if (!$payment->stripe_payment_intent_id) {
                 return ['status' => false, 'message' => 'No payment intent found', 'data' => null];
