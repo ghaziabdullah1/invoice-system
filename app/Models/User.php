@@ -113,6 +113,23 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    // ── Properties (Many-to-Many) ────────────────────────────
+    public function properties()
+    {
+        return $this->belongsToMany(Property::class, 'user_properties')
+            ->withPivot('is_default')
+            ->withTimestamps();
+    }
+
+    public function hasPropertyAccess(int $propertyId): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        return $this->properties()->where('properties.id', $propertyId)->exists();
+    }
+
     // ── Methods ──────────────────────────────────────────────
     public function isSuperAdmin(): bool
     {

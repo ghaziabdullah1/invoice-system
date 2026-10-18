@@ -128,8 +128,13 @@ Route::prefix('admin')->middleware([
     });
 
     // وحدة العقارات مستقلة عن الفروع: لا تمر عبر BranchMiddleware
-    require __DIR__ . '/admin/properties.php';
-    require __DIR__ . '/admin/floors.php';
-    require __DIR__ . '/admin/units.php';
-    require __DIR__ . '/admin/tenants.php';
+    // عقاراتي + القائمة القابلة للإسناد: لكل مستخدم مسجّل (خارج PropertyMiddleware)
+    require __DIR__ . '/admin/property-access.php';
+
+    Route::middleware([\App\Http\Middleware\PropertyMiddleware::class])->group(function () {
+        require __DIR__ . '/admin/properties.php';
+        require __DIR__ . '/admin/floors.php';
+        require __DIR__ . '/admin/units.php';
+        require __DIR__ . '/admin/tenants.php';
+    });
 });

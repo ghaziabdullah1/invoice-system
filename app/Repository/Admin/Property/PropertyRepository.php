@@ -17,6 +17,11 @@ class PropertyRepository implements PropertyInterface
                 ->with('creator:id,name')
                 ->orderBy('created_at', 'desc');
 
+            $allowedPropertyIds = $request->attributes->get('allowed_property_ids');
+            if (is_array($allowedPropertyIds)) {
+                $query->whereIn('id', $allowedPropertyIds);
+            }
+
             if ($request->has('is_active') && $request->is_active !== '') {
                 $query->where('is_active', (bool) $request->is_active);
             }
@@ -49,7 +54,12 @@ class PropertyRepository implements PropertyInterface
                 return ['status' => false, 'message' => __('messages.property_not_found'), 'data' => null];
             }
 
-            $property = Property::withCount('floors')->with('creator:id,name')->find((int) $id);
+            $propertyQuery = Property::withCount('floors')->with('creator:id,name');
+            $allowedPropertyIds = request()->attributes->get('allowed_property_ids');
+            if (is_array($allowedPropertyIds)) {
+                $propertyQuery->whereIn('id', $allowedPropertyIds);
+            }
+            $property = $propertyQuery->find((int) $id);
 
             if (!$property) {
                 return ['status' => false, 'message' => __('messages.property_not_found'), 'data' => null];
@@ -70,6 +80,7 @@ class PropertyRepository implements PropertyInterface
             $property = Property::create([
                 'name'       => $request->name,
                 'name_en'    => $request->name_en,
+                'type'       => $request->type,
                 'address'    => $request->address,
                 'city'       => $request->city,
                 'phone'      => $request->phone,
@@ -78,6 +89,10 @@ class PropertyRepository implements PropertyInterface
                 'is_active'  => $request->is_active ?? true,
                 'created_by' => auth()->id(),
             ]);
+
+            if (auth()->user() && !auth()->user()->isSuperAdmin()) {
+                auth()->user()->properties()->syncWithoutDetaching([$property->id => ['is_default' => false]]);
+            }
 
             ActivityLog::log('CREATE', __('messages.property_created') . ': ' . $property->name, $property);
 
@@ -98,7 +113,7 @@ class PropertyRepository implements PropertyInterface
         try {
             $oldValues = $property->toArray();
 
-            $allowedFields = ['name', 'name_en', 'address', 'city', 'phone', 'email', 'notes', 'is_active'];
+            $allowedFields = ['name', 'name_en', 'type', 'address', 'city', 'phone', 'email', 'notes', 'is_active'];
 
             $updateData = [];
             foreach ($allowedFields as $field) {

@@ -52,6 +52,18 @@ class Contract extends Model
         return $query->where('status', Constants::CONTRACT_STATUS_ACTIVE);
     }
 
+    /**
+     * العقود السارية فعلياً اليوم: حالتها سارية وتاريخ اليوم ضمن مدتها.
+     */
+    public function scopeInEffect($query)
+    {
+        $today = today()->format(Constants::DATE_FORMAT);
+
+        return $query->active()
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today);
+    }
+
     public function scopeExpiringWithin($query, int $days)
     {
         return $query->active()->whereBetween('end_date', [

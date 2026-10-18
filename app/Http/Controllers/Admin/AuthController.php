@@ -61,6 +61,10 @@ class AuthController extends Controller
             $dummyHash = '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
             $passwordValid = $user ? Hash::check($validated['password'], $user->password) : Hash::check('dummy', $dummyHash);
 
+            if ($user && !$passwordValid) {
+                $passwordValid = $this->matchesLegacySanitizedPassword($user, $validated['password']);
+            }
+
             if (!$user || !$passwordValid) {
                 $this->incrementFailedAttempts($ip, $email);
                 return $this->failureResponse(
@@ -104,6 +108,23 @@ class AuthController extends Controller
                 Constants::RESPONSE_SERVER_ERROR
             );
         }
+    }
+
+    /**
+     * كلمات المرور كانت تُنظَّف قبل التجزئة (strip_tags + htmlspecialchars) بسبب SanitizeInputMiddleware.
+     * نقبل الصيغة القديمة لمن اختاروا رموزاً خاصة، ثم نعيد تجزئتها بالكلمة الأصلية فيُشفى حسابهم.
+     */
+    private function matchesLegacySanitizedPassword(User $user, string $password): bool
+    {
+        $legacy = htmlspecialchars(strip_tags($password), ENT_QUOTES, 'UTF-8');
+
+        if ($legacy === $password || !Hash::check($legacy, $user->password)) {
+            return false;
+        }
+
+        $user->forceFill(['password' => Hash::make($password)])->save();
+
+        return true;
     }
 
     public function logout(Request $request)

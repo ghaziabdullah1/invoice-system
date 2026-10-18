@@ -141,6 +141,69 @@ class ReportController extends Controller
     /**
      * تصدير التقرير
      */
+    // public function export(Request $request, string $type): JsonResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse
+    // {
+    //     try {
+    //         if (in_array($request->input('lang'), ['ar', 'en'], true)) {
+    //             app()->setLocale($request->input('lang'));
+    //         }
+
+    //         $filters = $request->all();
+    //         unset($filters['lang']);
+    //         $filters['branch_id'] = $request->attributes->get('selected_branch_id');
+
+    //         if (empty($filters['start_date'])) {
+    //             $filters['start_date'] = now()->subDays(30)->format('Y-m-d');
+    //         }
+    //         if (empty($filters['end_date'])) {
+    //             $filters['end_date'] = now()->format('Y-m-d');
+    //         }
+
+    //         $reportData = $this->getReportData($type, $filters);
+
+    //         if (empty($reportData['items'])) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => __('reports.no_data')
+    //             ], 404);
+    //         }
+
+    //         $exportClass = $this->getExportClass($type, $reportData);
+
+    //         if ($request->has('download') && $request->input('download') === '1') {
+    //             return Excel::download($exportClass, $this->getFileName($type));
+    //         }
+
+    //         $fileName = $this->getFileName($type, true);
+    //         $filePath = 'exports/' . $fileName;
+    //         Excel::store($exportClass, $filePath, 'public');
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'message' => __('messages.export_success'),
+    //             'data' => [
+    //                 'file_path' => $filePath,
+    //                 'file_name' => $fileName,
+    //                 'url' => asset('storage/' . $filePath)
+    //             ]
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         Log::error('Export failed', [
+    //             'type' => $type,
+    //             'message' => $e->getMessage(),
+    //             'trace' => $e->getTraceAsString()
+    //         ]);
+
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => __('messages.export_failed') . ': ' . $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+
+    /**
+     * تصدير التقرير
+     */
     public function export(Request $request, string $type): JsonResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         try {
@@ -148,34 +211,44 @@ class ReportController extends Controller
                 app()->setLocale($request->input('lang'));
             }
 
-            $filters = $request->all();
-            unset($filters['lang']);
+            $filters = $request->except(['lang', 'download']);
             $filters['branch_id'] = $request->attributes->get('selected_branch_id');
 
             if (empty($filters['start_date'])) {
                 $filters['start_date'] = now()->subDays(30)->format('Y-m-d');
             }
+
             if (empty($filters['end_date'])) {
                 $filters['end_date'] = now()->format('Y-m-d');
             }
 
             $reportData = $this->getReportData($type, $filters);
 
+            Log::info('Report export result', [
+                'type' => $type,
+                'filters' => $filters,
+                'items_count' => count($reportData['items'] ?? []),
+            ]);
+
             if (empty($reportData['items'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => __('reports.no_data')
+                    'message' => __('reports.no_data'),
                 ], 404);
             }
 
             $exportClass = $this->getExportClass($type, $reportData);
 
-            if ($request->has('download') && $request->input('download') === '1') {
-                return Excel::download($exportClass, $this->getFileName($type));
+            if ($request->boolean('download')) {
+                return Excel::download(
+                    $exportClass,
+                    $this->getFileName($type)
+                );
             }
 
             $fileName = $this->getFileName($type, true);
             $filePath = 'exports/' . $fileName;
+
             Excel::store($exportClass, $filePath, 'public');
 
             return response()->json([
@@ -184,19 +257,19 @@ class ReportController extends Controller
                 'data' => [
                     'file_path' => $filePath,
                     'file_name' => $fileName,
-                    'url' => asset('storage/' . $filePath)
-                ]
+                    'url' => asset('storage/' . $filePath),
+                ],
             ]);
         } catch (\Exception $e) {
             Log::error('Export failed', [
                 'type' => $type,
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => __('messages.export_failed') . ': ' . $e->getMessage()
+                'message' => __('messages.export_failed') . ': ' . $e->getMessage(),
             ], 500);
         }
     }

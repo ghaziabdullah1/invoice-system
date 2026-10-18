@@ -29,6 +29,10 @@ class UpdateUserRequest extends FormRequest
             'tax_number' => 'nullable|string|max:100',
             'admin_group_id' => 'sometimes|exists:admin_groups,id',
             'is_active' => 'nullable|boolean',
+            'property_ids'   => 'nullable|array',
+            'property_ids.*' => 'integer|exists:properties,id',
+            'branch_ids'   => 'nullable|array',
+            'branch_ids.*' => 'integer|exists:branches,id',
         ];
     }
 

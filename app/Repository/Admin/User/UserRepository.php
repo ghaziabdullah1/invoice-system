@@ -15,7 +15,7 @@ class UserRepository implements UserInterface
     public function index($request)
     {
         try {
-            $query = User::with(['adminGroup', 'branches'])
+            $query = User::with(['adminGroup', 'branches', 'properties'])
                 ->orderBy('created_at', 'desc');
 
             // Apply filters
@@ -61,7 +61,7 @@ class UserRepository implements UserInterface
     public function show($id)
     {
         try {
-            $user = User::with(['adminGroup', 'branches'])->find($id);
+            $user = User::with(['adminGroup', 'branches', 'properties'])->find($id);
 
             if (!$user) {
                 return [
@@ -112,6 +112,10 @@ class UserRepository implements UserInterface
                 'is_active' => $request->is_active ?? true,
                 'admin_group_id' => $request->admin_group_id
             ]);
+
+            $this->syncBranches($user, $request->input('branch_ids'));
+
+            $this->syncProperties($user, $request);
 
             // Log activity
             ActivityLog::log(
@@ -175,6 +179,12 @@ class UserRepository implements UserInterface
 
             // Update user
             $user->update($updateData);
+
+            $this->syncProperties($user, $request);
+
+            if ($request->has('branch_ids')) {
+                $this->syncBranches($user, $request->input('branch_ids'));
+            }
 
             // Log activity
             ActivityLog::log(
@@ -465,5 +475,37 @@ class UserRepository implements UserInterface
                 'data' => null
             ];
         }
+    }
+
+    private function syncBranches(User $user, $branchIds): void
+    {
+        $branchIds = array_values(array_unique(array_map('intval', $branchIds ?? [])));
+
+        $sync = [];
+        foreach ($branchIds as $i => $branchId) {
+            $sync[$branchId] = ['is_default' => $i === 0];
+        }
+
+        $user->branches()->sync($sync);
+    }
+
+    private function syncProperties(User $user, $request): void
+    {
+        if (!$request->has('property_ids')) {
+            return;
+        }
+
+        if (!\App\Helpers\PermissionHelper::checkPermission(Constants::ASSIGN_PROPERTIES)) {
+            return;
+        }
+
+        $ids = array_values(array_unique(array_map('intval', (array) $request->input('property_ids', []))));
+
+        $sync = [];
+        foreach ($ids as $i => $id) {
+            $sync[$id] = ['is_default' => $i === 0];
+        }
+
+        $user->properties()->sync($sync);
     }
 }
