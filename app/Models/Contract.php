@@ -19,6 +19,7 @@ class Contract extends Model
         'start_date',
         'end_date',
         'rent_amount',
+        'currency',
         'payment_frequency',
         'payment_day',
         'security_deposit',
@@ -29,6 +30,7 @@ class Contract extends Model
         'renewed_from_id',
         'terminated_at',
         'termination_reason',
+        'expiry_alert_days',
         'notes',
         'created_by',
     ];
@@ -43,6 +45,16 @@ class Contract extends Model
         'payment_day'             => 'integer',
         'grace_days'              => 'integer',
     ];
+
+    // مسار المستند لا يُكشف في الـ API، ويُستبدل بعلامة وجود مستند
+    protected $hidden = ['contract_document_path'];
+
+    protected $appends = ['has_document'];
+
+    public function getHasDocumentAttribute(): bool
+    {
+        return !empty($this->contract_document_path);
+    }
 
     // ================================================================
     // Scopes
@@ -126,5 +138,10 @@ class Contract extends Model
     public function renewals()
     {
         return $this->hasMany(self::class, 'renewed_from_id');
+    }
+
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class);
     }
 }

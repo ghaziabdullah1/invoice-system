@@ -3,6 +3,7 @@
 namespace App\Repository\Admin\Tenant;
 
 use App\Models\Tenant;
+use App\Models\Unit;
 use App\Models\ActivityLog;
 use App\Constants\Constants;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,8 @@ class TenantRepository implements TenantInterface
         try {
             $query = Tenant::with('unit:id,name,floor_id')
                 ->orderBy('created_at', 'desc');
+
+            $this->limitToProperties($query, true);
 
             if ($request->has('unit_id') && $request->unit_id) {
                 $query->where('unit_id', (int) $request->unit_id);
@@ -52,7 +55,9 @@ class TenantRepository implements TenantInterface
                 return ['status' => false, 'message' => __('messages.tenant_not_found'), 'data' => null];
             }
 
-            $tenant = Tenant::with('unit:id,name,floor_id')->find((int) $id);
+            $query = Tenant::with('unit:id,name,floor_id');
+            $this->limitToProperties($query);
+            $tenant = $query->find((int) $id);
 
             if (!$tenant) {
                 return ['status' => false, 'message' => __('messages.tenant_not_found'), 'data' => null];
@@ -71,6 +76,11 @@ class TenantRepository implements TenantInterface
 
         try {
             $unitId = $request->unit_id ? (int) $request->unit_id : null;
+
+            if ($unitId && !$this->unitIsAccessible($unitId)) {
+                DB::rollBack();
+                return ['status' => false, 'message' => __('messages.unit_not_found'), 'data' => null];
+            }
 
             if ($unitId && Tenant::where('unit_id', $unitId)->exists()) {
                 DB::rollBack();
@@ -109,6 +119,11 @@ class TenantRepository implements TenantInterface
 
             if ($request->has('unit_id')) {
                 $newUnitId = $request->unit_id ? (int) $request->unit_id : null;
+
+                if ($newUnitId && $newUnitId !== $tenant->unit_id && !$this->unitIsAccessible($newUnitId)) {
+                    DB::rollBack();
+                    return ['status' => false, 'message' => __('messages.unit_not_found'), 'data' => null];
+                }
 
                 if ($newUnitId && $newUnitId !== $tenant->unit_id && Tenant::where('unit_id', $newUnitId)->exists()) {
                     DB::rollBack();
@@ -166,5 +181,57 @@ class TenantRepository implements TenantInterface
             Log::error('TenantRepository destroy error', ['error' => $e->getMessage()]);
             return ['status' => false, 'message' => __('messages.operation_failed'), 'data' => null];
         }
+    }
+
+    // ───────── نطاق العقارات المسموحة (null = بلا تقييد للسوبر أدمن) ─────────
+    private function allowedPropertyIds(): ?array
+    {
+        $allowed = request()->attributes->get('allowed_property_ids');
+
+        return is_array($allowed) ? $allowed : null;
+    }
+
+    private function selectedPropertyId(): ?int
+    {
+        $selected = request()->attributes->get('selected_property_id');
+
+        return $selected ? (int) $selected : null;
+    }
+
+    // المستأجر ينتمي لعقار عبر وحدته. ومن لا وحدة له يراه من أنشأه فقط
+    private function limitToProperties($query, bool $followSelected = false): void
+    {
+        $allowed  = $this->allowedPropertyIds();
+        $selected = $followSelected ? $this->selectedPropertyId() : null;
+
+        if (!is_array($allowed) && !$selected) {
+            return;
+        }
+
+        $query->where(function ($outer) use ($allowed, $selected) {
+            $outer->whereHas('unit.floor', function ($floor) use ($allowed, $selected) {
+                if (is_array($allowed)) {
+                    $floor->whereIn('floors.property_id', $allowed);
+                }
+                if ($selected) {
+                    $floor->where('floors.property_id', $selected);
+                }
+            })->orWhere(function ($own) {
+                $own->whereNull('unit_id')->where('created_by', auth()->id());
+            });
+        });
+    }
+
+    private function unitIsAccessible(int $unitId): bool
+    {
+        $allowed = $this->allowedPropertyIds();
+
+        if (!is_array($allowed)) {
+            return true;
+        }
+
+        return Unit::whereKey($unitId)
+            ->whereHas('floor', fn ($floor) => $floor->whereIn('floors.property_id', $allowed))
+            ->exists();
     }
 }

@@ -13,24 +13,30 @@ class InvoiceNotificationHelper
 {
     /**
      * ✅ العدادات: فواتير + تذاكر مفتوحة
+     *
+     * عدادات الفواتير الثلاثة في استعلام واحد (بدل ثلاثة)، والنتيجة نفسها:
+     * overdue و due_soon كلاهما ضمن unpaid (status != paid) و is_active،
+     * لذلك نطبّق الشرطين مرة واحدة ثم نفرّع بـ CASE.
      */
     public static function getCounts(): array
     {
-        $now = now()->toDateString();
+        $today = now()->toDateString();
+        $nextWeek = now()->addDays(7)->toDateString();
 
-        $unpaidCount = Invoice::where('status', '!=', Constants::INVOICE_STATUS_PAID)
+        $invoiceCounts = Invoice::query()
             ->where('is_active', true)
-            ->count();
+            ->where('status', '!=', Constants::INVOICE_STATUS_PAID)
+            ->selectRaw('COUNT(*) AS unpaid')
+            ->selectRaw('SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) AS overdue', [Constants::INVOICE_STATUS_OVERDUE])
+            ->selectRaw(
+                'SUM(CASE WHEN status = ? AND due_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS due_soon',
+                [Constants::INVOICE_STATUS_SENT, $today, $nextWeek]
+            )
+            ->first();
 
-        $overdueCount = Invoice::where('status', Constants::INVOICE_STATUS_OVERDUE)
-            ->where('is_active', true)
-            ->count();
-
-        $dueSoonCount = Invoice::where('status', Constants::INVOICE_STATUS_SENT)
-            ->whereDate('due_date', '>=', $now)
-            ->whereDate('due_date', '<=', now()->addDays(7)->toDateString())
-            ->where('is_active', true)
-            ->count();
+        $unpaidCount = (int) $invoiceCounts->unpaid;
+        $overdueCount = (int) $invoiceCounts->overdue;
+        $dueSoonCount = (int) $invoiceCounts->due_soon;
 
         $openTicketsCount = SupportTicket::whereIn('status', ['open', 'in_progress'])
             ->count();

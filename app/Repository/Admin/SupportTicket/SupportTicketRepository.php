@@ -193,7 +193,9 @@ class SupportTicketRepository implements SupportTicketInterface
     {
         DB::beginTransaction();
         try {
-            $isAdminReply = (bool) (auth('sanctum')->user()?->isAdmin() ?? false);
+            // موظف الدعم = السوبر أدمن أو مجموعة الأدمن (المحاسب والمبيعات يبقون في خانة المستخدمين)
+            $actor = auth('sanctum')->user();
+            $isAdminReply = (bool) ($actor && ($actor->isSuperAdmin() || $actor->isAdmin()));
             // ✅ is_internal يُفرض false من السيرفر لو الراد مش أدمن — لا نثق بمدخل الفرونت هنا
             $isInternal = $isAdminReply ? (bool) $request->boolean('is_internal') : false;
 

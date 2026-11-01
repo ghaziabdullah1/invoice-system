@@ -41,6 +41,8 @@ use App\Repository\Admin\Unit\UnitInterface;
 use App\Repository\Admin\Unit\UnitRepository;
 use App\Repository\Admin\Tenant\TenantInterface;
 use App\Repository\Admin\Tenant\TenantRepository;
+use App\Repository\Admin\Contract\ContractInterface;
+use App\Repository\Admin\Contract\ContractRepository;
 use App\Repository\Admin\PropertySummary\PropertySummaryInterface;
 use App\Repository\Admin\PropertySummary\PropertySummaryRepository;
 
@@ -75,6 +77,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(FloorInterface::class, FloorRepository::class);
         $this->app->bind(UnitInterface::class, UnitRepository::class);
         $this->app->bind(TenantInterface::class, TenantRepository::class);
+        $this->app->bind(ContractInterface::class, ContractRepository::class);
         $this->app->bind(PropertySummaryInterface::class, PropertySummaryRepository::class);
 
         // Bind Services

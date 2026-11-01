@@ -126,7 +126,7 @@ class PaymentLinkController extends Controller
      * إرسال رابط الدفع للعميل
      * POST /api/admin/payment-links/{linkId}/send
      */
-    public function sendLink($linkId)
+    public function sendLink(Request $request, $linkId)
     {
         $link = PaymentLink::whereHas('invoice', fn ($q) => $q->inAllowedBranches(request()->attributes->get('allowed_branch_ids')))
             ->find($linkId);
@@ -138,11 +138,17 @@ class PaymentLinkController extends Controller
             ], 404);
         }
 
-        $result = $this->paymentLinkService->sendLinkToClient($link);
+        $method = $request->input('method', 'email');
+        if (!in_array($method, ['email', 'sms', 'whatsapp'], true)) {
+            return response()->json(['status' => false, 'message' => 'invalid_method'], 422);
+        }
+
+        $result = $this->paymentLinkService->sendLinkToClient($link, $method);
 
         return response()->json([
-            'status'  => $result,
-            'message'   => $result ? 'created' : 'failed',
+            'status'  => $result['status'],
+            'message' => $result['message'],
+            'data'    => $result['data'] ?? null,
         ]);
     }
 
@@ -165,5 +171,51 @@ class PaymentLinkController extends Controller
             'status' => true,
             'data'   => $link,
         ]);
+    }
+
+    /**
+     * بيانات محدودة لصفحة الدفع العامة (بدون token أو metadata)
+     * GET /api/payment-links/{token}/public
+     */
+    public function publicInfo($token)
+    {
+        $link = PaymentLink::with(['invoice:id,invoice_number,status', 'client:id,name'])
+            ->where('token', $token)
+            ->first();
+
+        if (!$link) {
+            return response()->json(['status' => false, 'message' => 'not_found'], 404);
+        }
+
+        if ($link->status === 'active' && $link->isExpired()) {
+            $link->markAsExpired();
+        }
+
+        return response()->json([
+            'status' => true,
+            'data'   => [
+                'state'          => $link->status,
+                'amount'         => (float) $link->amount,
+                'currency'       => $link->currency,
+                'invoice_number' => $link->invoice->invoice_number ?? null,
+                'client_name'    => $link->client->name ?? null,
+                'expires_at'     => optional($link->expires_at)->toIso8601String(),
+            ],
+        ]);
+    }
+
+    /**
+     * إنشاء جلسة Stripe من الرابط (عام)
+     * POST /api/payment-links/{token}/checkout
+     */
+    public function checkout($token)
+    {
+        $result = $this->paymentLinkService->createCheckoutForLink($token);
+
+        return response()->json([
+            'status'  => $result['status'],
+            'message' => $result['message'],
+            'data'    => $result['data'],
+        ], $result['status'] ? 200 : 422);
     }
 }

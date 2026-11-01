@@ -128,6 +128,12 @@ class PaymentRepository implements PaymentInterface
 
     private function handleCheckoutCompleted(object $session): void
     {
+        // دفع عبر رابط دفع عام: يعالجه PaymentLinkService (مبلغ الرابط وقسطه بالضبط)
+        if (!empty($session->metadata->payment_link_id)) {
+            app(\App\Services\PaymentLinkService::class)->completeFromSession($session);
+            return;
+        }
+
         $payment = Payment::where('stripe_checkout_session_id', $session->id)->first();
 
         if ($payment) {

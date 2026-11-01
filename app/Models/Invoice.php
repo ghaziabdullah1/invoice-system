@@ -34,6 +34,9 @@ class Invoice extends Model
         'paid_at',
         'created_by',
         'is_active',
+        'contract_id',
+        'period_start',
+        'period_end',
     ];
 
     protected $hidden = [
@@ -57,6 +60,9 @@ class Invoice extends Model
         'user_id'                => 'integer',
         'branch_id'              => 'integer',
         'created_by'             => 'integer',
+        'contract_id'            => 'integer',
+        'period_start'           => 'date',
+        'period_end'             => 'date',
     ];
 
     // ================================================================
@@ -167,6 +173,17 @@ class Invoice extends Model
     public function branch()
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function contract()
+    {
+        return $this->belongsTo(Contract::class);
+    }
+
+    // النسخ لا يحمل ارتباط العقد والفترة، حتى لا تبدو الفاتورة المنسوخة كأنها فاتورة فترة من العقد
+    public function replicate(?array $except = null)
+    {
+        return parent::replicate(array_values(array_unique(array_merge($except ?? [], ['contract_id', 'period_start', 'period_end']))));
     }
 
     // ================================================================
