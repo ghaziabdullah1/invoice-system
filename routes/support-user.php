@@ -5,5 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 // البادئة api/support والـ middleware تأتي من BroadcastServiceProvider
 Route::get('my-tickets', [MySupportTicketController::class, 'index']);
+Route::get('my-tickets/unread-count', [MySupportTicketController::class, 'unreadCount']);
 Route::get('my-tickets/{id}', [MySupportTicketController::class, 'show'])->whereNumber('id');
+Route::post('my-tickets/{id}/read', [MySupportTicketController::class, 'read'])->whereNumber('id');
 Route::post('my-tickets/{id}/replies', [MySupportTicketController::class, 'reply'])->whereNumber('id');

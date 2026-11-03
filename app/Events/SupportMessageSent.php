@@ -22,6 +22,10 @@ class SupportMessageSent implements ShouldBroadcastNow
         // الملاحظة الداخلية لا تصل للعميل ابدا
         if (!$this->reply->is_internal) {
             $channels[] = new PrivateChannel('support.ticket.' . $this->reply->ticket_id);
+            $ownerId = $this->reply->ticket?->user_id;
+            if ($ownerId) {
+                $channels[] = new PrivateChannel('support.user.' . $ownerId);
+            }
         }
 
         return $channels;

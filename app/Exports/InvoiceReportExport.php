@@ -75,7 +75,7 @@ class InvoiceReportExport implements FromArray, WithHeadings, WithMapping, WithS
         ];
     }
 
-    public function styles(Worksheet $sheet)
+    public function styles(Worksheet $sheet): ?array
     {
         // تنسيق العنوان
         $sheet->getStyle('A1:H1')->applyFromArray([
@@ -133,30 +133,30 @@ class InvoiceReportExport implements FromArray, WithHeadings, WithMapping, WithS
                 $sheet->setCellValue('A' . $summaryRow, __('reports.statistics') . ':');
                 $sheet->getStyle('A' . $summaryRow)->getFont()->setBold(true);
 
-                $sheet->setCellValue('A' . ($summaryRow + 1), 'reports.total_invoices' . ':');
+                $sheet->setCellValue('A' . ($summaryRow + 1), __('reports.total_invoices') . ':');
                 $sheet->setCellValue('B' . ($summaryRow + 1), $this->stats['total_invoices'] ?? 0);
 
-                $sheet->setCellValue('A' . ($summaryRow + 2), 'reports.total_amount' . ':');
+                $sheet->setCellValue('A' . ($summaryRow + 2), __('reports.total_amount') . ':');
                 $sheet->setCellValue('B' . ($summaryRow + 2), number_format($this->stats['total_amount'] ?? 0, 2));
 
-                $sheet->setCellValue('A' . ($summaryRow + 3), 'reports.total_paid' . ':');
+                $sheet->setCellValue('A' . ($summaryRow + 3), __('reports.total_paid') . ':');
                 $sheet->setCellValue('B' . ($summaryRow + 3), number_format($this->stats['total_paid'] ?? 0, 2));
 
-                $sheet->setCellValue('A' . ($summaryRow + 4), 'reports.total_due' . ':');
+                $sheet->setCellValue('A' . ($summaryRow + 4), __('reports.total_due') . ':');
                 $sheet->setCellValue('B' . ($summaryRow + 4), number_format($this->stats['total_due'] ?? 0, 2));
 
                 // إضافة معلومات التقرير
                 $infoRow = $summaryRow + 6;
-                $sheet->setCellValue('A' . $infoRow, 'reports.report_info' . ':');
+                $sheet->setCellValue('A' . $infoRow, __('reports.report_info') . ':');
                 $sheet->getStyle('A' . $infoRow)->getFont()->setBold(true);
 
-                $sheet->setCellValue('A' . ($infoRow + 1), 'reports.generated_at' . ': ' . date('Y-m-d H:i:s'));
+                $sheet->setCellValue('A' . ($infoRow + 1), __('reports.generated_at') . ': ' . date('Y-m-d H:i:s'));
 
                 if (!empty($this->filters['start_date'])) {
-                    $sheet->setCellValue('A' . ($infoRow + 2), 'reports.start_date' . ': ' . $this->filters['start_date']);
+                    $sheet->setCellValue('A' . ($infoRow + 2), __('reports.start_date') . ': ' . $this->filters['start_date']);
                 }
                 if (!empty($this->filters['end_date'])) {
-                    $sheet->setCellValue('A' . ($infoRow + 3), ' reports.end_date' . ': ' . $this->filters['end_date']);
+                    $sheet->setCellValue('A' . ($infoRow + 3), __('reports.end_date') . ': ' . $this->filters['end_date']);
                 }
             }
         ];
@@ -164,6 +164,6 @@ class InvoiceReportExport implements FromArray, WithHeadings, WithMapping, WithS
 
     public function title(): string
     {
-        return 'reports.invoice_report';
+        return __('reports.invoice_report');
     }
 }

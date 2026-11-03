@@ -42,6 +42,14 @@ use App\Repository\Admin\Unit\UnitRepository;
 use App\Repository\Admin\Tenant\TenantInterface;
 use App\Repository\Admin\Tenant\TenantRepository;
 use App\Repository\Admin\Contract\ContractInterface;
+use App\Repository\Admin\Supplier\SupplierInterface;
+use App\Repository\Admin\AiWebhook\AiWebhookInterface;
+use App\Repository\Admin\AiWebhook\AiWebhookRepository;
+use App\Repository\Admin\AiDraft\AiDraftInterface;
+use App\Repository\Admin\AiDraft\AiDraftRepository;
+use App\Repository\Admin\Supplier\SupplierRepository;
+use App\Repository\Admin\PurchaseOrder\PurchaseOrderInterface;
+use App\Repository\Admin\PurchaseOrder\PurchaseOrderRepository;
 use App\Repository\Admin\Contract\ContractRepository;
 use App\Repository\Admin\PropertySummary\PropertySummaryInterface;
 use App\Repository\Admin\PropertySummary\PropertySummaryRepository;
@@ -53,6 +61,7 @@ use Illuminate\Support\Facades\URL;
 use App\Constants\Constants;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Mail;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -78,6 +87,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(UnitInterface::class, UnitRepository::class);
         $this->app->bind(TenantInterface::class, TenantRepository::class);
         $this->app->bind(ContractInterface::class, ContractRepository::class);
+        $this->app->bind(SupplierInterface::class, SupplierRepository::class);
+        $this->app->bind(AiWebhookInterface::class, AiWebhookRepository::class);
+        $this->app->bind(AiDraftInterface::class, AiDraftRepository::class);
+        $this->app->bind(PurchaseOrderInterface::class, PurchaseOrderRepository::class);
         $this->app->bind(PropertySummaryInterface::class, PropertySummaryRepository::class);
 
         // Bind Services
@@ -135,6 +148,10 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->ip());
         });
 
+        // في البيئة المحلية فقط: كل البريد يذهب لبريدي الشخصي ولا يصل لأي عميل
+        if ($this->app->environment('local')) {
+            return Mail::alwaysTo('ghazia.alrayan@gmail.com');
+        }
         // Set global pagination limit
         \Illuminate\Pagination\Paginator::useBootstrap();
     }

@@ -234,4 +234,26 @@ class Constants
     const UNIT_STATUS_INACTIVE = 'inactive';
 
     const VIEW_ACTIVITY_LOGS = 'view_activity_logs';
+
+    // ═══════════════════════════════════════════════════════════════
+    // AI Agent
+    // ═══════════════════════════════════════════════════════════════
+    const AI_CHANNEL_WHATSAPP = 'whatsapp';
+
+    const AI_CONVERSATION_BOT = 'bot';
+    const AI_CONVERSATION_HUMAN = 'human';
+
+    const AI_DIRECTION_IN = 'in';
+    const AI_DIRECTION_OUT = 'out';
+
+    const AI_MESSAGE_RECEIVED = 'received';
+    const AI_MESSAGE_DRAFT = 'draft';
+    const AI_MESSAGE_SENT = 'sent';
+    const AI_MESSAGE_REJECTED = 'rejected';
+    const AI_MESSAGE_FAILED = 'failed';
+
+    const AI_HANDOFF_MARKER = '[HANDOFF]';
+
+    const AI_LANG_AR = 'ar';
+    const AI_LANG_EN = 'en';
 }

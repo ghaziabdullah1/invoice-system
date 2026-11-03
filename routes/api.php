@@ -130,6 +130,7 @@ Route::prefix('admin')->middleware([
         require __DIR__ . '/admin/payments.php';
         require __DIR__ . '/admin/recurring-invoices.php';
         require __DIR__ . '/admin/payment-links.php';
+        require __DIR__ . '/admin/procurement.php';
     });
 
     // وحدة العقارات مستقلة عن الفروع: لا تمر عبر BranchMiddleware
@@ -139,6 +140,7 @@ Route::prefix('admin')->middleware([
     // الدعم الفني مستقل عن الفروع: التذاكر ليست مرتبطة بفرع، ولا يجوز أن يُحجب عنها
     // موظف الدعم أو أي مستخدم لا فرع له (كما هو الحال في وحدة العقارات)
     require __DIR__ . '/admin/support.php';
+    require __DIR__ . '/admin/ai.php';
 
     Route::middleware([\App\Http\Middleware\PropertyMiddleware::class])->group(function () {
         require __DIR__ . '/admin/properties.php';
@@ -146,5 +148,8 @@ Route::prefix('admin')->middleware([
         require __DIR__ . '/admin/units.php';
         require __DIR__ . '/admin/tenants.php';
         require __DIR__ . '/admin/contracts.php';
+        require __DIR__ . '/admin/reports-realty.php';
     });
 });
+
+require __DIR__ . '/ai-webhook.php';

@@ -7,6 +7,7 @@ use App\Models\SupportTicketReply;
 use App\Repository\Admin\SupportTicket\SupportTicketInterface;
 use App\Traits\ResponseTrait;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 // تذاكر المستخدم العادي: كل استعلام مقيّد بـ user_id، ولا شيء من الملاحظات الداخلية يخرج
 class MySupportTicketController extends Controller
@@ -29,13 +30,32 @@ class MySupportTicketController extends Controller
             ->get();
     }
 
+    // ردود الدعم العلنية التي وصلت بعد آخر قراءة (أو كلها إن لم تُقرأ التذكرة بعد)
+    private function unreadScope($query, string $ticketTable, string $replyTable)
+    {
+        return $query->where("$replyTable.is_internal", false)
+            ->where("$replyTable.is_admin_reply", true)
+            ->where(function ($w) use ($ticketTable, $replyTable) {
+                $w->whereNull("$ticketTable.customer_last_read_at")
+                    ->orWhereColumn("$replyTable.created_at", '>', "$ticketTable.customer_last_read_at");
+            });
+    }
+
+    private function markRead(int $ticketId): void
+    {
+        // DB مباشر: لا نغيّر updated_at ولا نطلق أحداث الموديل
+        DB::table((new SupportTicket)->getTable())->where('id', $ticketId)->update(['customer_last_read_at' => now()]);
+    }
+
     public function index(Request $request)
     {
-        $table   = (new SupportTicket)->getTable();
-        $perPage = min(max((int) $request->input('per_page', 30), 1), 100);
+        $table      = (new SupportTicket)->getTable();
+        $replyTable = (new SupportTicketReply)->getTable();
+        $perPage    = min(max((int) $request->input('per_page', 30), 1), 100);
 
         $tickets = SupportTicket::where('user_id', auth('sanctum')->id())
             ->withCount(['replies as replies_count' => fn ($q) => $q->where('is_internal', false)])
+            ->withCount(['replies as unread_count' => fn ($q) => $this->unreadScope($q, $table, $replyTable)])
             ->addSelect(['last_message' => SupportTicketReply::select('message')
                 ->whereColumn('ticket_id', "$table.id")
                 ->where('is_internal', false)
@@ -53,6 +73,31 @@ class MySupportTicketController extends Controller
                 'total'        => $tickets->total(),
             ],
         ]);
+    }
+
+    public function unreadCount()
+    {
+        $table      = (new SupportTicket)->getTable();
+        $replyTable = (new SupportTicketReply)->getTable();
+
+        $count = SupportTicketReply::whereHas('ticket', function ($q) use ($table, $replyTable) {
+            $q->where("$table.user_id", auth('sanctum')->id());
+            $this->unreadScope($q->getQuery(), $table, $replyTable);
+        })->count();
+
+        return $this->successResponse('ok', ['count' => $count]);
+    }
+
+    public function read(int $id)
+    {
+        $ticket = $this->owned($id);
+        if (!$ticket) {
+            return $this->failureResponse(__('messages.support_ticket_not_found'), null, 404);
+        }
+
+        $this->markRead($ticket->id);
+
+        return $this->successResponse('ok', ['id' => $ticket->id]);
     }
 
     public function show(Request $request, int $id)
@@ -87,6 +132,9 @@ class MySupportTicketController extends Controller
         if (!$result['status']) {
             return $this->failureResponse($result['message']);
         }
+
+        // من يرسل رداً فقد قرأ المحادثة
+        $this->markRead($ticket->id);
 
         return $this->successResponse($result['message'], [
             'reply'   => $result['data']['reply'],

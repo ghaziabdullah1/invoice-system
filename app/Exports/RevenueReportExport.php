@@ -63,7 +63,7 @@ class RevenueReportExport implements FromArray, WithHeadings, WithMapping, WithS
         ];
     }
 
-    public function styles(Worksheet $sheet)
+    public function styles(Worksheet $sheet): ?array
     {
         // تنسيق العنوان
         $sheet->getStyle('A1:F1')->applyFromArray([

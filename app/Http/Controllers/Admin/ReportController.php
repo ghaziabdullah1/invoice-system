@@ -372,7 +372,6 @@ class ReportController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'failed to create report: ' . $e->getMessage(),
                 'data' => $files
             ]);
         } catch (\Exception $e) {

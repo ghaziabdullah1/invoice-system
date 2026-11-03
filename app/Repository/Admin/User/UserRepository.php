@@ -34,6 +34,27 @@ class UserRepository implements UserInterface
                 });
             }
 
+            // filters: group + status + dates
+            if ($request->filled('group_id')) {
+                $query->where('admin_group_id', $request->group_id);
+            }
+
+            if ($request->filled('status') && in_array($request->status, ['active', 'inactive'], true)) {
+                if ($request->status === 'active') {
+                    $query->where('is_active', Constants::ACTIVE);
+                } else {
+                    $query->where('is_active', '!=', Constants::ACTIVE);
+                }
+            }
+
+            if ($request->filled('date_from') && strtotime($request->date_from)) {
+                $query->whereDate('created_at', '>=', $request->date_from);
+            }
+
+            if ($request->filled('date_to') && strtotime($request->date_to)) {
+                $query->whereDate('created_at', '<=', $request->date_to);
+            }
+
             // Get paginated or all results
             if ($request->has('per_page')) {
                 $users = $query->paginate(

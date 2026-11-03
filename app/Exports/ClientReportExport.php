@@ -66,7 +66,7 @@ class ClientReportExport implements FromArray, WithHeadings, WithMapping, WithSt
         ];
     }
 
-    public function styles(Worksheet $sheet)
+    public function styles(Worksheet $sheet): ?array
     {
         // تنسيق العنوان (9 أعمدة A-I)
         $sheet->getStyle('A1:I1')->applyFromArray([
