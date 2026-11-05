@@ -17,6 +17,7 @@ class PurchaseOrderRequest extends FormRequest
         return [
             'branch_id'          => 'nullable|integer|exists:branches,id',
             'supplier_id'        => ['required', 'integer', Rule::exists('suppliers', 'id')->whereNull('deleted_at')],
+            'beneficiary_department_id' => ['nullable', 'integer', Rule::exists('departments', 'id')->whereNull('deleted_at')],
             'order_date'         => 'required|date',
             'expected_date'      => 'nullable|date|after_or_equal:order_date',
             'currency'           => 'nullable|string|size:3',

@@ -6,7 +6,9 @@ use App\Constants\Constants;
 use App\Constants\Procurement;
 use App\Helpers\PermissionHelper;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Procurement\SignPurchaseOrderRequest;
 use App\Http\Requests\Admin\Procurement\PurchaseOrderReasonRequest;
+use App\Http\Requests\Admin\Procurement\UploadAttachmentRequest;
 use App\Http\Requests\Admin\Procurement\PurchaseOrderRequest;
 use App\Http\Requests\Admin\Procurement\ReceivePurchaseOrderRequest;
 use App\Repository\Admin\PurchaseOrder\PurchaseOrderInterface;
@@ -67,12 +69,12 @@ class PurchaseOrderController extends Controller
         return $this->act($id, [Procurement::CREATE_PO, Procurement::EDIT_PO], fn ($o) => $this->orders->submit($o), __('procurement.submitted'));
     }
 
-    public function approve($id)
+    public function approve(SignPurchaseOrderRequest $request, $id)
     {
-        return $this->act($id, Procurement::APPROVE_PO, fn ($o) => $this->orders->approve($o), __('procurement.approved'));
+        return $this->act($id, Procurement::APPROVE_PO, fn ($o) => $this->orders->approve($request, $o), __('procurement.approved'));
     }
 
-    public function reject(PurchaseOrderReasonRequest $request, $id)
+    public function reject(SignPurchaseOrderRequest $request, $id)
     {
         return $this->act($id, Procurement::APPROVE_PO, fn ($o) => $this->orders->reject($request, $o), __('procurement.rejected'));
     }
@@ -90,6 +92,21 @@ class PurchaseOrderController extends Controller
     public function cancel(PurchaseOrderReasonRequest $request, $id)
     {
         return $this->act($id, Procurement::CANCEL_PO, fn ($o) => $this->orders->cancel($request, $o), __('procurement.cancelled'));
+    }
+
+    public function attachments($id)
+    {
+        return $this->act($id, Procurement::VIEW_PO, fn ($o) => $this->orders->attachments($o), '');
+    }
+
+    public function uploadAttachment(UploadAttachmentRequest $request, $id)
+    {
+        return $this->act($id, Procurement::EDIT_PO, fn ($o) => $this->orders->uploadAttachment($request->file('file'), $o), __('procurement.attachment_uploaded'));
+    }
+
+    public function deleteAttachment($id, $attachmentId)
+    {
+        return $this->act($id, Procurement::EDIT_PO, fn ($o) => $this->orders->deleteAttachmentForOrder($o, (int) $attachmentId), __('procurement.attachment_deleted'));
     }
 
     // فحص الصلاحية، ثم جلب الأمر (مع تقييد الفرع)، ثم تنفيذ الإجراء

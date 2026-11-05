@@ -8,7 +8,7 @@ class GoodsReceipt extends Model
 {
     protected $fillable = ['receipt_number', 'purchase_order_id', 'received_date', 'received_by', 'notes'];
 
-    protected $casts = ['received_date' => 'date'];
+    protected $casts = ['received_date' => 'date:Y-m-d'];
 
     public function purchaseOrder()
     {

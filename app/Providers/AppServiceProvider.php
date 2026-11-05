@@ -47,6 +47,8 @@ use App\Repository\Admin\AiWebhook\AiWebhookInterface;
 use App\Repository\Admin\AiWebhook\AiWebhookRepository;
 use App\Repository\Admin\AiDraft\AiDraftInterface;
 use App\Repository\Admin\AiDraft\AiDraftRepository;
+use App\Repository\Admin\AiTool\AiToolInterface;
+use App\Repository\Admin\AiTool\AiToolRepository;
 use App\Repository\Admin\Supplier\SupplierRepository;
 use App\Repository\Admin\PurchaseOrder\PurchaseOrderInterface;
 use App\Repository\Admin\PurchaseOrder\PurchaseOrderRepository;
@@ -90,6 +92,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(SupplierInterface::class, SupplierRepository::class);
         $this->app->bind(AiWebhookInterface::class, AiWebhookRepository::class);
         $this->app->bind(AiDraftInterface::class, AiDraftRepository::class);
+        $this->app->bind(AiToolInterface::class, AiToolRepository::class);
         $this->app->bind(PurchaseOrderInterface::class, PurchaseOrderRepository::class);
         $this->app->bind(PropertySummaryInterface::class, PropertySummaryRepository::class);
 
@@ -148,9 +151,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->ip());
         });
 
-        // في البيئة المحلية فقط: كل البريد يذهب لبريدي الشخصي ولا يصل لأي عميل
-        if ($this->app->environment('local')) {
-            return Mail::alwaysTo('ghazia.alrayan@gmail.com');
+        // // في البيئة المحلية فقط: كل البريد يذهب لبريدي الشخصي ولا يصل لأي عميل
+        // if ($this->app->environment('local')) {
+        //     return Mail::alwaysTo('ghazia.alrayan@gmail.com');
+        // }
+
+        // تحويل البريد لعنوان واحد يعمل فقط إذا حددت MAIL_ALWAYS_TO في .env
+        if ($this->app->environment('local') && env('MAIL_ALWAYS_TO')) {
+            Mail::alwaysTo(env('MAIL_ALWAYS_TO'));
         }
         // Set global pagination limit
         \Illuminate\Pagination\Paginator::useBootstrap();

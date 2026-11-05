@@ -131,11 +131,14 @@ Route::prefix('admin')->middleware([
         require __DIR__ . '/admin/recurring-invoices.php';
         require __DIR__ . '/admin/payment-links.php';
         require __DIR__ . '/admin/procurement.php';
+require __DIR__ . '/admin/approval-workflows.php';
+require __DIR__ . '/admin/departments.php';
     });
 
     // وحدة العقارات مستقلة عن الفروع: لا تمر عبر BranchMiddleware
     // عقاراتي + القائمة القابلة للإسناد: لكل مستخدم مسجّل (خارج PropertyMiddleware)
     require __DIR__ . '/admin/property-access.php';
+    require __DIR__ . '/admin/my-approvals.php';
 
     // الدعم الفني مستقل عن الفروع: التذاكر ليست مرتبطة بفرع، ولا يجوز أن يُحجب عنها
     // موظف الدعم أو أي مستخدم لا فرع له (كما هو الحال في وحدة العقارات)

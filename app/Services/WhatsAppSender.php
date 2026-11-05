@@ -16,7 +16,7 @@ class WhatsAppSender
             throw new RuntimeException('WhatsApp is not configured');
         }
 
-        $url = "https://graph.facebook.com/{$cfg['graph_version']}/{$cfg['phone_number_id']}/messages";
+        $url = rtrim($cfg['base_url'], '/') . "/{$cfg['graph_version']}/{$cfg['phone_number_id']}/messages";
 
         $response = Http::withToken($cfg['token'])->timeout(15)->post($url, [
             'messaging_product' => 'whatsapp',

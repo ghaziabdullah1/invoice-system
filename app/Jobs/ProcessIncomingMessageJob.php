@@ -53,7 +53,7 @@ class ProcessIncomingMessageJob implements ShouldQueue
         if ($key) {
             // الوسائط غير النصية لا تحمل لغة: نستخدم لغة آخر رسالة نصية من العميل
             $lang = $lang ?? $this->conversationLanguage($conversation);
-            $this->deliver($conversation, $this->template($key, $lang), 0, 0, $sender);
+            $this->deliver($conversation, $this->template($key, $lang), 0, 0, $sender, (bool) $cfg['auto_reply_templates']);
             return;
         }
 
@@ -61,7 +61,7 @@ class ProcessIncomingMessageJob implements ShouldQueue
         if ($ai->dailyCapReached()) {
             Log::warning('AI daily token cap reached');
             $conversation->update(['status' => Constants::AI_CONVERSATION_HUMAN]);
-            $this->deliver($conversation, $this->template('busy', $lang), 0, 0, $sender);
+            $this->deliver($conversation, $this->template('busy', $lang), 0, 0, $sender, (bool) $cfg['auto_reply_templates']);
             return;
         }
 
@@ -70,6 +70,10 @@ class ProcessIncomingMessageJob implements ShouldQueue
             $result = $ai->reply($conversation);
         } catch (Throwable $e) {
             Log::error('AI reply failed: ' . $e->getMessage());
+
+            // النموذج غير متاح (مفتاح ناقص، رصيد منتهٍ، انقطاع): لا نترك العميل بلا رد ولا الموظف بلا علم
+            $conversation->update(['status' => Constants::AI_CONVERSATION_HUMAN]);
+            $this->deliver($conversation, $this->template('busy', $lang), 0, 0, $sender, (bool) $cfg['auto_reply_templates']);
             return;
         }
 
@@ -81,7 +85,7 @@ class ProcessIncomingMessageJob implements ShouldQueue
             $conversation->update(['status' => Constants::AI_CONVERSATION_HUMAN]);
         }
 
-        $this->deliver($conversation, $result['text'], $result['input'], $result['output'], $sender);
+        $this->deliver($conversation, $result['text'], $result['input'], $result['output'], $sender, (bool) $cfg['auto_reply']);
     }
 
     /** حروف عربية ← ar، نص آخر ← en، لا نص ← null */
@@ -138,7 +142,7 @@ class ProcessIncomingMessageJob implements ShouldQueue
     }
 
     /** يحفظ الرد كمسودة، أو يرسله مباشرة إذا كان AI_AUTO_REPLY=true */
-    protected function deliver(AiConversation $conversation, string $body, int $in, int $out, WhatsAppSender $sender): void
+    protected function deliver(AiConversation $conversation, string $body, int $in, int $out, WhatsAppSender $sender, bool $auto = false): void
     {
         $message = AiMessage::create([
             'ai_conversation_id' => $conversation->id,
@@ -150,13 +154,20 @@ class ProcessIncomingMessageJob implements ShouldQueue
             'output_tokens'      => $out,
         ]);
 
-        if (!config('services.ai_agent.auto_reply')) {
+        if (!$auto) {
             return;
         }
 
         try {
             $externalId = $sender->sendText($conversation->contact, $body);
-            $message->update(['status' => Constants::AI_MESSAGE_SENT, 'external_id' => $externalId]);
+            $message->update(['status' => Constants::AI_MESSAGE_SENT]);
+
+            // الرد وصل للعميل فعلاً: فشل حفظ المعرّف لا يجوز أن يُظهره كأنه لم يُرسل
+            try {
+                $message->update(['external_id' => $externalId]);
+            } catch (Throwable $e) {
+                Log::warning('AI message external_id not saved: ' . $e->getMessage());
+            }
         } catch (Throwable $e) {
             Log::error('WhatsApp send failed: ' . $e->getMessage());
             $message->update(['status' => Constants::AI_MESSAGE_FAILED]);

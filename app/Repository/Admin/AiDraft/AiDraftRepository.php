@@ -61,7 +61,7 @@ class AiDraftRepository implements AiDraftInterface
     /** يرسل المسودة (بنصها الأصلي أو المعدّل) ثم يسجّل العملية */
     public function approve($draft, $body = null)
     {
-        if ($draft->status !== Constants::AI_MESSAGE_DRAFT) {
+        if (!in_array($draft->status, [Constants::AI_MESSAGE_DRAFT, Constants::AI_MESSAGE_FAILED], true)) {
             return ['status' => false, 'message' => 'Draft already processed', 'data' => null, 'code' => Constants::RESPONSE_BAD_REQUEST];
         }
 
@@ -75,13 +75,23 @@ class AiDraftRepository implements AiDraftInterface
             $draft->update([
                 'body'        => $text,
                 'status'      => Constants::AI_MESSAGE_SENT,
-                'external_id' => $externalId,
             ]);
+
+            // الرد وصل للعميل فعلاً: فشل حفظ المعرّف لا يجوز أن يُعلَّم الإرسال فاشلاً
+            try {
+                $draft->update(['external_id' => $externalId]);
+            } catch (\Throwable $e) {
+                Log::warning('AiDraft external_id not saved: ' . $e->getMessage());
+            }
 
             ActivityLog::log('UPDATE', 'AI draft approved: #' . $draft->id, $draft, $old, $draft->fresh()->toArray());
 
             return ['status' => true, 'data' => $draft->fresh()];
         } catch (\Throwable $e) {
+            if (str_starts_with($e->getMessage(), 'WhatsApp is not configured')) {
+                return ['status' => false, 'message' => 'WhatsApp is not configured yet', 'data' => null, 'code' => Constants::RESPONSE_BAD_REQUEST];
+            }
+
             Log::error('AiDraft approve: ' . $e->getMessage());
             $draft->update(['status' => Constants::AI_MESSAGE_FAILED]);
             return ['status' => false, 'message' => __('messages.error'), 'data' => null];
@@ -90,7 +100,7 @@ class AiDraftRepository implements AiDraftInterface
 
     public function reject($draft)
     {
-        if ($draft->status !== Constants::AI_MESSAGE_DRAFT) {
+        if (!in_array($draft->status, [Constants::AI_MESSAGE_DRAFT, Constants::AI_MESSAGE_FAILED], true)) {
             return ['status' => false, 'message' => 'Draft already processed', 'data' => null, 'code' => Constants::RESPONSE_BAD_REQUEST];
         }
 

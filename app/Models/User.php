@@ -113,6 +113,29 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    // ── Departments (Many-to-Many) ───────────────────────────
+    public function departments()
+    {
+        return $this->belongsToMany(Department::class, "user_departments")
+            ->withPivot("is_primary")
+            ->withTimestamps();
+    }
+
+    public function primaryDepartment()
+    {
+        return $this->departments()->wherePivot("is_primary", true)->first();
+    }
+
+    public function managedDepartments()
+    {
+        return $this->hasMany(Department::class, "manager_id");
+    }
+
+    public function managesDepartment(int $departmentId): bool
+    {
+        return $this->managedDepartments()->where("id", $departmentId)->exists();
+    }
+
     // ── Properties (Many-to-Many) ────────────────────────────
     public function properties()
     {

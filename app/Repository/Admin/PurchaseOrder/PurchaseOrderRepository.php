@@ -6,11 +6,17 @@ use App\Constants\Constants;
 use App\Constants\Procurement;
 use App\Helpers\PermissionHelper;
 use App\Models\ActivityLog;
+use App\Models\PurchaseOrderAttachment;
+use App\Models\PurchaseOrderSignature;
 use App\Models\GoodsReceipt;
 use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderApproval;
 use App\Models\Supplier;
+use App\Services\Procurement\ApprovalChainException;
+use App\Services\Procurement\ApprovalChainService;
 use App\Traits\ProcurementRepositoryTrait;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class PurchaseOrderRepository implements PurchaseOrderInterface
 {
@@ -24,6 +30,9 @@ class PurchaseOrderRepository implements PurchaseOrderInterface
         'receipts.receiver:id,name',
         'creator:id,name',
         'approver:id,name',
+        'attachments',
+        'signatures.user:id,name',
+        'approvals.approver:id,name',
     ];
 
     // ================================================================
@@ -139,7 +148,10 @@ class PurchaseOrderRepository implements PurchaseOrderInterface
                 'discount_amount'    => $calc['discount_amount'],
                 'total'              => $calc['total'],
                 'notes'              => $request->input('notes'),
-                'created_by'         => auth()->id(),
+                'created_by'              => auth()->id(),
+                'requester_id'              => auth()->id(),
+                'requester_department_id' => $this->requesterDepartmentId(),
+                'beneficiary_department_id' => $request->input('beneficiary_department_id') ?: $this->requesterDepartmentId(),
             ]);
 
             $order->items()->createMany($calc['rows']);
@@ -180,6 +192,7 @@ class PurchaseOrderRepository implements PurchaseOrderInterface
             $old = $locked->toArray();
 
             $locked->update([
+                'beneficiary_department_id' => $request->input('beneficiary_department_id') ?: $locked->beneficiary_department_id,
                 'supplier_id'         => $supplier->id,
                 'status'              => Procurement::STATUS_DRAFT,
                 'order_date'          => $request->input('order_date'),
@@ -242,37 +255,166 @@ class PurchaseOrderRepository implements PurchaseOrderInterface
     // ================================================================
     public function submit($order)
     {
-        return $this->move(
-            $order->id,
-            Procurement::EDITABLE_STATUSES,
-            Procurement::STATUS_PENDING_APPROVAL,
-            [
-                'submitted_at'     => now(),
-                'rejected_by'      => null,
-                'rejected_at'      => null,
-                'rejection_reason' => null,
-            ],
-            __('procurement.submitted')
-        );
+        DB::beginTransaction();
+
+        try {
+            $po = PurchaseOrder::lockForUpdate()->find($order->id);
+
+            if (!$po || !in_array($po->status, Procurement::EDITABLE_STATUSES, true)) {
+                DB::rollBack();
+                return $this->fail(__('procurement.invalid_state'));
+            }
+
+            // Auto-fill requester fields for legacy POs (created before workflow)
+            if (!$po->requester_id && $po->created_by) {
+                $po->requester_id = $po->created_by;
+            }
+            if (!$po->requester_department_id && $po->requester_id) {
+                $creator = \App\Models\User::find($po->requester_id);
+                $dept = $creator?->primaryDepartment() ?? $creator?->departments()->first();
+                if (!$dept) {
+                    $dept = \App\Models\Department::where('code', 'GEN')->first();
+                }
+                $po->requester_department_id = $dept?->id;
+                $po->save();
+            }
+
+            if (!$po->requester_department_id) {
+                DB::rollBack();
+                return $this->fail(__('procurement.requester_department_required'));
+            }
+
+            try {
+                $chain = app(ApprovalChainService::class)->build($po);
+            } catch (ApprovalChainException $e) {
+                DB::rollBack();
+
+                return $this->fail($e->getMessage());
+            }
+
+            // مسح أي سلسلة سابقة (عند إعادة الإرسال بعد الرفض)
+            $po->approvals()->delete();
+
+            foreach ($chain as $index => $step) {
+                PurchaseOrderApproval::create([
+                    'purchase_order_id' => $po->id,
+                    'step'              => $step['step'],
+                    'approver_id'       => $step['approver_id'],
+                    'status'            => $index === 0
+                        ? PurchaseOrderApproval::STATUS_PENDING
+                        : PurchaseOrderApproval::STATUS_WAITING,
+                    'deadline_at'       => $index === 0 ? now()->addHours($step['sla_hours'] ?? 48) : null,
+                    'sla_hours'         => $step['sla_hours'] ?? 48,
+                ]);
+            }
+
+            $po->update([
+                'status'                 => Procurement::STATUS_PENDING_APPROVAL,
+                'current_step'           => 1,
+                'approval_chain_set_at'  => now(),
+                'submitted_at'           => now(),
+                'rejected_by'            => null,
+                'rejected_at'            => null,
+                'rejection_reason'       => null,
+            ]);
+
+            ActivityLog::log('UPDATE', __('procurement.submitted') . ': ' . $po->po_number, $po);
+
+            DB::commit();
+
+            return $this->ok($this->load($po->id));
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return $this->failure($e, 'po.submit');
+        }
     }
 
-    public function approve($order)
+    public function approve($request, $order)
     {
-        return $this->move(
-            $order->id,
-            [Procurement::STATUS_PENDING_APPROVAL],
-            Procurement::STATUS_APPROVED,
-            ['approved_by' => auth()->id(), 'approved_at' => now()],
-            __('procurement.approved'),
-            function (PurchaseOrder $po) {
-                // مبدأ فصل المهام: من أنشأ الأمر لا يعتمده، إلا السوبر أدمن
-                if ($po->created_by && $po->created_by === auth()->id() && !PermissionHelper::isSuperAdmin()) {
-                    return $this->fail(__('procurement.self_approval'), Constants::RESPONSE_FORBIDDEN);
-                }
+        DB::beginTransaction();
 
-                return null;
+        try {
+            $po = PurchaseOrder::lockForUpdate()->find($order->id);
+
+            if (!$po || $po->status !== Procurement::STATUS_PENDING_APPROVAL) {
+                DB::rollBack();
+                return $this->fail(__('procurement.invalid_state'));
             }
-        );
+
+            if (auth()->id() && in_array(auth()->id(), [$po->created_by, $po->requester_id], true)) {
+                DB::rollBack();
+                return $this->fail(__('procurement.self_approval'), Constants::RESPONSE_FORBIDDEN);
+            }
+
+            // مسار الطلبات القديمة (قبل تفعيل الـ workflow)
+            if ($po->approval_chain_set_at === null) {
+                $po->update([
+                    'status'      => Procurement::STATUS_APPROVED,
+                    'approved_by' => auth()->id(),
+                    'approved_at' => now(),
+                ]);
+                ActivityLog::log('UPDATE', __('procurement.approved') . ': ' . $po->po_number, $po);
+                DB::commit();
+                return $this->ok($this->load($po->id));
+            }
+
+            $current = $po->approvals()
+                ->whereIn('status', [PurchaseOrderApproval::STATUS_PENDING, PurchaseOrderApproval::STATUS_ESCALATED])
+                ->first();
+
+            if (!$current) {
+                DB::rollBack();
+                return $this->fail(__('procurement.no_pending_approval'));
+            }
+
+            if (!$this->isAssignedApprover($current) && !PermissionHelper::isSuperAdmin()) {
+                DB::rollBack();
+                return $this->fail(__('procurement.not_your_turn'), Constants::RESPONSE_FORBIDDEN);
+            }
+
+            $signature = $this->saveSignature($po->id, $request->input('signature'), 'approve', null);
+
+            if ($signature === null) {
+                DB::rollBack();
+                return $this->fail(__('procurement.signature_required'));
+            }
+
+            $current->update([
+                'status'        => PurchaseOrderApproval::STATUS_APPROVED,
+                'signature_path' => $signature->signature_path,
+                'signed_at'     => now(),
+            ]);
+
+            $next = $po->approvals()
+                ->where('status', PurchaseOrderApproval::STATUS_WAITING)
+                ->orderBy('step')
+                ->first();
+
+            if ($next) {
+                $next->update([
+                    'status'      => PurchaseOrderApproval::STATUS_PENDING,
+                    'deadline_at' => now()->addHours($next->sla_hours ?: 48),
+                ]);
+                $po->update(['current_step' => $next->step]);
+                $message = __('procurement.approved_step_advanced') . ': ' . $po->po_number;
+            } else {
+                $po->update([
+                    'status'      => Procurement::STATUS_APPROVED,
+                    'approved_by' => auth()->id(),
+                    'approved_at' => now(),
+                ]);
+                $message = __('procurement.approved') . ': ' . $po->po_number;
+            }
+
+            ActivityLog::log('UPDATE', $message, $po);
+
+            DB::commit();
+
+            return $this->ok($this->load($po->id));
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return $this->failure($e, 'po.approve');
+        }
     }
 
     public function reject($request, $order)
@@ -283,13 +425,82 @@ class PurchaseOrderRepository implements PurchaseOrderInterface
             return $this->fail(__('procurement.reason_required'));
         }
 
-        return $this->move(
-            $order->id,
-            [Procurement::STATUS_PENDING_APPROVAL],
-            Procurement::STATUS_REJECTED,
-            ['rejected_by' => auth()->id(), 'rejected_at' => now(), 'rejection_reason' => $reason, 'approved_by' => null, 'approved_at' => null],
-            __('procurement.rejected')
-        );
+        DB::beginTransaction();
+
+        try {
+            $po = PurchaseOrder::lockForUpdate()->find($order->id);
+
+            if (!$po || $po->status !== Procurement::STATUS_PENDING_APPROVAL) {
+                DB::rollBack();
+                return $this->fail(__('procurement.invalid_state'));
+            }
+
+            // مسار الطلبات القديمة
+            if ($po->approval_chain_set_at === null) {
+                $po->update([
+                    'status'            => Procurement::STATUS_REJECTED,
+                    'rejected_by'       => auth()->id(),
+                    'rejected_at'       => now(),
+                    'rejection_reason'  => $reason,
+                    'approved_by'       => null,
+                    'approved_at'       => null,
+                ]);
+                ActivityLog::log('UPDATE', __('procurement.rejected') . ': ' . $po->po_number, $po);
+                DB::commit();
+                return $this->ok($this->load($po->id));
+            }
+
+            $current = $po->approvals()
+                ->whereIn('status', [PurchaseOrderApproval::STATUS_PENDING, PurchaseOrderApproval::STATUS_ESCALATED])
+                ->first();
+
+            if (!$current) {
+                DB::rollBack();
+                return $this->fail(__('procurement.no_pending_approval'));
+            }
+
+            if (!$this->isAssignedApprover($current) && !PermissionHelper::isSuperAdmin()) {
+                DB::rollBack();
+                return $this->fail(__('procurement.not_your_turn'), Constants::RESPONSE_FORBIDDEN);
+            }
+
+            $signature = $this->saveSignature($po->id, $request->input('signature'), 'reject', $reason);
+
+            if ($signature === null) {
+                DB::rollBack();
+                return $this->fail(__('procurement.signature_required'));
+            }
+
+            $current->update([
+                'status'         => PurchaseOrderApproval::STATUS_REJECTED,
+                'signature_path' => $signature->signature_path,
+                'reason'         => $reason,
+                'signed_at'      => now(),
+            ]);
+
+            // إلغاء بقية الخطوات
+            $po->approvals()
+                ->where('status', PurchaseOrderApproval::STATUS_WAITING)
+                ->update(['status' => PurchaseOrderApproval::STATUS_SKIPPED]);
+
+            $po->update([
+                'status'            => Procurement::STATUS_REJECTED,
+                'rejected_by'       => auth()->id(),
+                'rejected_at'       => now(),
+                'rejection_reason'  => $reason,
+                'approved_by'       => null,
+                'approved_at'       => null,
+            ]);
+
+            ActivityLog::log('UPDATE', __('procurement.rejected') . ': ' . $po->po_number, $po);
+
+            DB::commit();
+
+            return $this->ok($this->load($po->id));
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return $this->failure($e, 'po.reject');
+        }
     }
 
     public function send($order)
@@ -311,13 +522,26 @@ class PurchaseOrderRepository implements PurchaseOrderInterface
             return $this->fail(__('procurement.reason_required'));
         }
 
-        return $this->move(
+        $result = $this->move(
             $order->id,
             Procurement::CANCELLABLE_STATUSES,
             Procurement::STATUS_CANCELLED,
             ['cancelled_by' => auth()->id(), 'cancelled_at' => now(), 'cancellation_reason' => $reason],
             __('procurement.cancelled')
         );
+
+        // تعليم الخطوات المعلّقة كملغاة بعد نجاح الإلغاء فقط
+        if ($result['status']) {
+            $order->approvals()
+                ->whereIn('status', [
+                    PurchaseOrderApproval::STATUS_PENDING,
+                    PurchaseOrderApproval::STATUS_WAITING,
+                    PurchaseOrderApproval::STATUS_ESCALATED,
+                ])
+                ->update(['status' => PurchaseOrderApproval::STATUS_SKIPPED]);
+        }
+
+        return $result;
     }
 
     // ================================================================
@@ -394,6 +618,136 @@ class PurchaseOrderRepository implements PurchaseOrderInterface
     }
 
     // ================================================================
+    // المرفقات
+    // ================================================================
+    public function attachments($order)
+    {
+        return $this->ok($order->attachments()->get());
+    }
+
+    public function uploadAttachment($file, $order)
+    {
+        try {
+            $path = $file->store('purchase_orders/' . $order->id . '/attachments', 'public');
+
+            if (!$path) {
+                return $this->fail(__('procurement.attachment_upload_failed'), Constants::RESPONSE_SERVER_ERROR);
+            }
+
+            $attachment = PurchaseOrderAttachment::create([
+                'purchase_order_id' => $order->id,
+                'path'               => $path,
+                'original_name'      => $file->getClientOriginalName(),
+                'mime_type'          => $file->getMimeType(),
+                'size'               => $file->getSize(),
+                'uploaded_by'        => auth()->id(),
+            ]);
+
+            ActivityLog::log('CREATE', __('procurement.attachment_uploaded') . ': ' . $order->po_number . ' (' . $attachment->original_name . ')', $order);
+
+            return $this->ok($attachment);
+        } catch (\Throwable $e) {
+            return $this->failure($e, 'po.upload');
+        }
+    }
+
+    public function deleteAttachmentForOrder($order, int $attachmentId)
+    {
+        $attachment = $order->attachments()->find($attachmentId);
+
+        if (!$attachment) {
+            return $this->fail(__('procurement.attachment_not_found'), Constants::RESPONSE_NOT_FOUND);
+        }
+
+        try {
+            Storage::disk('public')->delete($attachment->path);
+            $name = $attachment->original_name;
+            $attachment->delete();
+
+            ActivityLog::log('DELETE', __('procurement.attachment_deleted') . ': ' . $order->po_number . ' (' . $name . ')', $order);
+
+            return $this->ok(null);
+        } catch (\Throwable $e) {
+            return $this->failure($e, 'po.attachment.delete');
+        }
+    }
+
+    // ================================================================
+    // التوقيع + تغيير الحالة
+    // ================================================================
+    private function moveWithSignature(int $id, array $from, string $to, array $extra, string $message, string $action, $request, ?callable $guard = null, ?string $reason = null): array
+    {
+        DB::beginTransaction();
+
+        try {
+            $po = PurchaseOrder::lockForUpdate()->find($id);
+
+            if (!$po || !in_array($po->status, $from, true)) {
+                DB::rollBack();
+                return $this->fail(__('procurement.invalid_state'));
+            }
+
+            if ($guard && ($error = $guard($po))) {
+                DB::rollBack();
+                return $error;
+            }
+
+            $signature = $this->saveSignature($po->id, $request->input('signature'), $action, $reason);
+
+            if ($signature === null) {
+                DB::rollBack();
+                return $this->fail(__('procurement.signature_required'));
+            }
+
+            $old = $po->toArray();
+            $po->update(array_merge(['status' => $to], $extra));
+
+            ActivityLog::log('UPDATE', $message . ': ' . $po->po_number, $po, $old, $po->fresh()->toArray());
+
+            DB::commit();
+
+            return $this->ok($this->load($po->id));
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return $this->failure($e, 'po.sign');
+        }
+    }
+
+    // الموافق المعيَّن أو المُصعَّد إليه
+    private function isAssignedApprover(PurchaseOrderApproval $approval): bool
+    {
+        $userId = (int) auth()->id();
+
+        return $userId !== 0
+            && ((int) $approval->approver_id === $userId || (int) $approval->escalated_to_id === $userId);
+    }
+
+    private function saveSignature(int $poId, $base64, string $action, ?string $reason): ?PurchaseOrderSignature
+    {
+        if (!is_string($base64) || !preg_match('/^data:image\/png;base64,(.+)$/', $base64, $m)) {
+            return null;
+        }
+
+        $binary = base64_decode($m[1], true);
+
+        if ($binary === false || strlen($binary) > 1048576) {
+            return null;
+        }
+
+        $path = 'purchase_orders/' . $poId . '/signatures/' . uniqid('sig_', true) . '.png';
+        Storage::disk('public')->put($path, $binary);
+
+        return PurchaseOrderSignature::create([
+            'purchase_order_id' => $poId,
+            'user_id'           => auth()->id(),
+            'signature_path'    => $path,
+            'action'            => $action,
+            'reason'            => $reason,
+            'signed_at'         => now(),
+        ]);
+    }
+
+    // ================================================================
     // Helpers
     // ================================================================
     private function move(int $id, array $from, string $to, array $extra, string $message, ?callable $guard = null): array
@@ -426,6 +780,19 @@ class PurchaseOrderRepository implements PurchaseOrderInterface
 
             return $this->failure($e, 'po.move');
         }
+    }
+
+private function requesterDepartmentId(): ?int
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            return null;
+        }
+
+        $dept = $user->primaryDepartment() ?? $user->departments()->first();
+
+        return $dept?->id;
     }
 
     private function load(int $id)

@@ -17,3 +17,5 @@ Schedule::command('contracts:notify-expiring')->dailyAt('07:00');
 Schedule::call(fn () => app(App\Services\ExportService::class)->cleanupOldFiles(7))
     ->name('exports-cleanup')
     ->dailyAt('03:00');
+
+Schedule::command('procurement:escalate')->hourly();

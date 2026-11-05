@@ -37,6 +37,11 @@ class ProcurementPermissionsSeeder extends Seeder
             ['send_purchase_order', 'Send Purchase Order to Supplier', 'إرسال أمر الشراء للمورد'],
             ['receive_purchase_order', 'Receive Goods', 'استلام البضاعة'],
             ['cancel_purchase_order', 'Cancel Purchase Order', 'إلغاء أمر شراء'],
+            ['view_departments', 'View Departments', 'عرض الأقسام'],
+            ['manage_departments', 'Manage Departments', 'إدارة الأقسام'],
+            ['view_approval_rules', 'View Approval Workflows', 'عرض سير الموافقات'],
+            ['manage_approval_rules', 'Manage Approval Workflows', 'إدارة سير الموافقات'],
+            ['view_my_approvals', 'View My Approvals', 'عرض موافقاتي'],
         ];
 
         // لا تُمنح لأي مجموعة تلقائياً: السوبر أدمن يملكها ضمناً، والباقي يُعيَّن من شاشة تعيين الصلاحيات.

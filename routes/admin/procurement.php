@@ -26,4 +26,9 @@ Route::prefix('purchase-orders')->group(function () {
     Route::post('/{id}/send', [PurchaseOrderController::class, 'send'])->whereNumber('id');
     Route::post('/{id}/receive', [PurchaseOrderController::class, 'receive'])->whereNumber('id');
     Route::post('/{id}/cancel', [PurchaseOrderController::class, 'cancel'])->whereNumber('id');
+
+    // المرفقات
+    Route::get('/{id}/attachments', [PurchaseOrderController::class, 'attachments'])->whereNumber('id');
+    Route::post('/{id}/attachments', [PurchaseOrderController::class, 'uploadAttachment'])->whereNumber('id');
+    Route::delete('/{id}/attachments/{attachmentId}', [PurchaseOrderController::class, 'deleteAttachment'])->whereNumber('id')->whereNumber('attachmentId');
 });

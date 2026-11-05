@@ -46,4 +46,15 @@ class Procurement
         self::STATUS_REJECTED, self::STATUS_SENT,
     ];
     const DELETABLE_STATUSES  = [self::STATUS_DRAFT, self::STATUS_REJECTED, self::STATUS_CANCELLED];
+
+    // صلاحيات الأقسام
+    public const VIEW_DEPARTMENTS = "view_departments";
+    public const MANAGE_DEPARTMENTS = "manage_departments";
+
+    // صلاحيات قواعد الموافقات
+    public const VIEW_APPROVAL_RULES = "view_approval_rules";
+    public const MANAGE_APPROVAL_RULES = "manage_approval_rules";
+
+    // موافقاتي
+    public const VIEW_MY_APPROVALS = "view_my_approvals";
 }
