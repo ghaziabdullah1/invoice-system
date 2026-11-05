@@ -41,6 +41,11 @@ return [
     ],
 
 
+    // بريد التطوير: في البيئة المحلية فقط يُوجَّه كل البريد إليه (يُضبط في .env ولا يُكتب في الكود)
+    'dev' => [
+        'mail_redirect' => env('MAIL_DEV_REDIRECT'),
+    ],
+
     'anthropic' => [
         'key'   => env('ANTHROPIC_API_KEY'),
         'model' => env('ANTHROPIC_MODEL', 'claude-haiku-5-5'),
