@@ -171,6 +171,7 @@ class Constants
     const CREATE_PROPERTY = 'create_property';
     const EDIT_PROPERTY = 'edit_property';
     const DELETE_PROPERTY = 'delete_property';
+    const ASSIGN_PROPERTIES = 'assign_properties';
 
     const VIEW_FLOORS = 'view_floors';
     const CREATE_FLOOR = 'create_floor';
@@ -209,5 +210,50 @@ class Constants
     const PAYMENT_FREQUENCY_SEMI_ANNUAL = 'semi_annual';
     const PAYMENT_FREQUENCY_ANNUAL = 'annual';
 
+    const CONTRACT_FREQUENCY_MONTHS = [
+        self::PAYMENT_FREQUENCY_MONTHLY     => 1,
+        self::PAYMENT_FREQUENCY_QUARTERLY   => 3,
+        self::PAYMENT_FREQUENCY_SEMI_ANNUAL => 6,
+        self::PAYMENT_FREQUENCY_ANNUAL      => 12,
+    ];
+
+    const PROPERTY_TYPE_RESIDENTIAL = 'residential';
+    const PROPERTY_TYPE_COMMERCIAL = 'commercial';
+    const PROPERTY_TYPE_MIXED = 'mixed';
+    const PROPERTY_TYPE_INDUSTRIAL = 'industrial';
+    const PROPERTY_TYPES = [
+        self::PROPERTY_TYPE_RESIDENTIAL,
+        self::PROPERTY_TYPE_COMMERCIAL,
+        self::PROPERTY_TYPE_MIXED,
+        self::PROPERTY_TYPE_INDUSTRIAL,
+    ];
+
+    const UNIT_STATUS_OCCUPIED = 'occupied';
+    const UNIT_STATUS_RESERVED = 'reserved';
+    const UNIT_STATUS_VACANT = 'vacant';
+    const UNIT_STATUS_INACTIVE = 'inactive';
+
     const VIEW_ACTIVITY_LOGS = 'view_activity_logs';
+
+    // ═══════════════════════════════════════════════════════════════
+    // AI Agent
+    // ═══════════════════════════════════════════════════════════════
+    const AI_CHANNEL_WHATSAPP = 'whatsapp';
+
+    const AI_CONVERSATION_BOT = 'bot';
+    const AI_CONVERSATION_HUMAN = 'human';
+
+    const AI_DIRECTION_IN = 'in';
+    const AI_DIRECTION_OUT = 'out';
+
+    const AI_MESSAGE_RECEIVED = 'received';
+    const AI_MESSAGE_DRAFT = 'draft';
+    const AI_MESSAGE_SENT = 'sent';
+    const AI_MESSAGE_REJECTED = 'rejected';
+    const AI_MESSAGE_FAILED = 'failed';
+
+    const AI_HANDOFF_MARKER = '[HANDOFF]';
+
+    const AI_LANG_AR = 'ar';
+    const AI_LANG_EN = 'en';
 }

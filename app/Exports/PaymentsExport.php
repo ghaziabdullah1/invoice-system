@@ -19,7 +19,7 @@ class PaymentsExport implements FromCollection, WithHeadings, WithMapping, WithS
         $this->filters = $filters;
     }
 
-    public function collection()
+    public function collection(): \Illuminate\Support\Collection
     {
         $query = Invoice::with(['client'])
             ->where('status', 'paid');
@@ -67,7 +67,7 @@ class PaymentsExport implements FromCollection, WithHeadings, WithMapping, WithS
         ];
     }
 
-    public function styles(Worksheet $sheet)
+    public function styles(Worksheet $sheet): ?array
     {
         return [
             1 => ['font' => ['bold' => true]],

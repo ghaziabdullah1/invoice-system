@@ -7,6 +7,7 @@ use App\Traits\ResponseTrait;
 use App\Http\Controllers\Controller;
 use App\Helpers\PermissionHelper;
 use App\Constants\Constants;
+use Illuminate\Http\Request;
 
 class OtpLogController extends Controller
 {
@@ -19,7 +20,7 @@ class OtpLogController extends Controller
         $this->otpLogRepository = $otpLogRepository;
     }
 
-    public function index()
+    public function index(Request $request)
     {
         // ✅ فحص صلاحية مضاف
         if (!PermissionHelper::checkPermission(Constants::VIEW_OTP_LOGS)) {
@@ -30,7 +31,7 @@ class OtpLogController extends Controller
             );
         }
 
-        $logs = $this->otpLogRepository->all();
+        $logs = $this->otpLogRepository->paginate($request);
         return $this->successResponse('fetched', $logs);
     }
 }

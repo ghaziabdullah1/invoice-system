@@ -31,6 +31,23 @@ class ClientRepository implements ClientInterface
                 $query->search($search);
             }
 
+            // filters: status + dates
+            if ($request->filled('status') && in_array($request->status, ['active', 'inactive'], true)) {
+                if ($request->status === 'active') {
+                    $query->where('is_active', Constants::ACTIVE);
+                } else {
+                    $query->where('is_active', '!=', Constants::ACTIVE);
+                }
+            }
+
+            if ($request->filled('date_from') && strtotime($request->date_from)) {
+                $query->whereDate('created_at', '>=', $request->date_from);
+            }
+
+            if ($request->filled('date_to') && strtotime($request->date_to)) {
+                $query->whereDate('created_at', '<=', $request->date_to);
+            }
+
             if ($request->has('per_page')) {
                 $perPage = (int) $request->per_page;
                 $perPage = min($perPage, Constants::MAX_PER_PAGE);

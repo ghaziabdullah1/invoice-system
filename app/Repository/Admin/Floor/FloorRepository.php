@@ -18,6 +18,8 @@ class FloorRepository implements FloorInterface
                 ->with('property:id,name')
                 ->orderBy('floor_number');
 
+            $this->limitToProperties($query, true);
+
             if ($request->has('property_id') && $request->property_id) {
                 $query->where('property_id', (int) $request->property_id);
             }
@@ -56,7 +58,9 @@ class FloorRepository implements FloorInterface
                 return ['status' => false, 'message' => __('messages.floor_not_found'), 'data' => null];
             }
 
-            $floor = Floor::withCount('units')->with('property:id,name')->find((int) $id);
+            $query = Floor::withCount('units')->with('property:id,name');
+            $this->limitToProperties($query);
+            $floor = $query->find((int) $id);
 
             if (!$floor) {
                 return ['status' => false, 'message' => __('messages.floor_not_found'), 'data' => null];
@@ -75,6 +79,12 @@ class FloorRepository implements FloorInterface
 
         try {
             $property = Property::find((int) $request->property_id);
+
+            // لا يُنشأ إلا في عقار مسموح للمستخدم
+            $allowed = $this->allowedPropertyIds();
+            if ($property && is_array($allowed) && !in_array((int) $property->id, $allowed, true)) {
+                $property = null;
+            }
 
             if (!$property) {
                 DB::rollBack();
@@ -162,6 +172,35 @@ class FloorRepository implements FloorInterface
             DB::rollBack();
             Log::error('FloorRepository destroy error', ['error' => $e->getMessage()]);
             return ['status' => false, 'message' => __('messages.operation_failed'), 'data' => null];
+        }
+    }
+
+    // ───────── نطاق العقارات المسموحة (null = بلا تقييد للسوبر أدمن) ─────────
+    private function allowedPropertyIds(): ?array
+    {
+        $allowed = request()->attributes->get('allowed_property_ids');
+
+        return is_array($allowed) ? $allowed : null;
+    }
+
+    private function selectedPropertyId(): ?int
+    {
+        $selected = request()->attributes->get('selected_property_id');
+
+        return $selected ? (int) $selected : null;
+    }
+
+    // القائمة تتبع العقار المختار في الشريط العلوي، وغيرها يقيَّد بالعقارات المسموحة فقط
+    private function limitToProperties($query, bool $followSelected = false): void
+    {
+        $allowed  = $this->allowedPropertyIds();
+        $selected = $followSelected ? $this->selectedPropertyId() : null;
+
+        if (is_array($allowed)) {
+            $query->whereIn('floors.property_id', $allowed);
+        }
+        if ($selected) {
+            $query->where('floors.property_id', $selected);
         }
     }
 }

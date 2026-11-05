@@ -97,11 +97,14 @@ class PaymentRepository implements PaymentInterface
     public function handleWebhook(string $payload, ?string $sigHeader): array
     {
         try {
-            $event = Webhook::constructEvent(
-                $payload,
-                $sigHeader,
-                config('services.stripe.webhook_secret')
-            );
+            $webhookSecret = config('services.stripe.webhook_secret');
+
+            if (empty($webhookSecret)) {
+                Log::critical('Stripe webhook secret is not configured');
+                return ['status' => false, 'message' => 'Webhook is not configured'];
+            }
+
+            $event = Webhook::constructEvent($payload, $sigHeader, $webhookSecret);
 
             switch ($event->type) {
                 case 'checkout.session.completed':
@@ -119,12 +122,18 @@ class PaymentRepository implements PaymentInterface
             return ['status' => false, 'message' => 'Invalid signature'];
         } catch (\Exception $e) {
             Log::error('Webhook error: ' . $e->getMessage());
-            return ['status' => false, 'message' => $e->getMessage()];
+            return ['status' => false, 'message' => 'Webhook processing failed'];
         }
     }
 
     private function handleCheckoutCompleted(object $session): void
     {
+        // دفع عبر رابط دفع عام: يعالجه PaymentLinkService (مبلغ الرابط وقسطه بالضبط)
+        if (!empty($session->metadata->payment_link_id)) {
+            app(\App\Services\PaymentLinkService::class)->completeFromSession($session);
+            return;
+        }
+
         $payment = Payment::where('stripe_checkout_session_id', $session->id)->first();
 
         if ($payment) {

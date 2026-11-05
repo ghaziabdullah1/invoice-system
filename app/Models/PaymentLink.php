@@ -16,6 +16,8 @@ class PaymentLink extends Model
         'metadata', 'sent_via', 'sent_at',
     ];
 
+    protected $appends = ['public_url'];
+
     protected $casts = [
         'amount' => 'decimal:2',
         'expires_at' => 'datetime',
@@ -57,6 +59,7 @@ class PaymentLink extends Model
         $this->update(['status' => 'paid', 'paid_at' => now(), 'payment_method' => $paymentMethod]);
     }
 
+    public function markAsExpired(): void { $this->update(['status' => 'expired']); }
     public function isExpired(): bool { return $this->expires_at && $this->expires_at->isPast(); }
     public function isActive(): bool { return $this->status === 'active' && !$this->isExpired(); }
 }

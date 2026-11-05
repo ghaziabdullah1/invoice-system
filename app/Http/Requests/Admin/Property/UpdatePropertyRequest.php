@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Admin\Property;
 
+use App\Constants\Constants;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdatePropertyRequest extends FormRequest
 {
@@ -16,6 +18,7 @@ class UpdatePropertyRequest extends FormRequest
         return [
             'name'      => ['sometimes', 'required', 'string', 'max:255'],
             'name_en'   => ['nullable', 'string', 'max:255'],
+            'type'      => ['sometimes', 'required', Rule::in(Constants::PROPERTY_TYPES)],
             'address'   => ['nullable', 'string'],
             'city'      => ['nullable', 'string', 'max:255'],
             'phone'     => ['nullable', 'string', 'max:20'],

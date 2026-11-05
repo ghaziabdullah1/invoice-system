@@ -222,4 +222,97 @@ class ClientController extends Controller
 
         return $this->failureResponse($invoicesData['message'], $invoicesData['data']);
     }
+
+    public function statement(\Illuminate\Http\Request $request, $id)
+    {
+        $request->validate([
+            'from' => 'nullable|date',
+            'to'   => 'nullable|date|after_or_equal:from',
+        ]);
+
+        $allowed = $request->attributes->get('allowed_branch_ids');
+        $client = \App\Models\Client::inAllowedBranches($allowed)->find($id);
+        if (!$client) {
+            return response()->json(['status' => false, 'message' => __('messages.not_found')], 404);
+        }
+
+        $from = $request->filled('from') ? \Carbon\Carbon::parse($request->input('from'))->toDateString() : null;
+        $to   = $request->filled('to') ? \Carbon\Carbon::parse($request->input('to'))->toDateString() : null;
+
+        $invoices = \App\Models\Invoice::inAllowedBranches($allowed)
+            ->where('client_id', $client->id)
+            ->whereNull('deleted_at')
+            ->where('status', '!=', \App\Constants\Constants::INVOICE_STATUS_DRAFT)
+            ->get(['id', 'invoice_number', 'invoice_date', 'payment_date', 'paid_at', 'status', 'total', 'currency']);
+
+        $rows = [];
+        foreach ($invoices as $inv) {
+            if (!$inv->invoice_date) {
+                continue;
+            }
+            $cur   = $inv->currency ?: ($client->currency ?: '');
+            $total = (float) $inv->total;
+
+            $rows[$cur][] = [
+                'date' => $inv->invoice_date->toDateString(), 'order' => 0, 'type' => 'invoice',
+                'ref' => $inv->invoice_number, 'invoice_id' => $inv->id, 'debit' => $total, 'credit' => 0.0,
+            ];
+
+            if ($inv->status === \App\Constants\Constants::INVOICE_STATUS_PAID) {
+                $paidOn = ($inv->payment_date ?? $inv->paid_at ?? $inv->invoice_date)->toDateString();
+                $rows[$cur][] = [
+                    'date' => $paidOn, 'order' => 1, 'type' => 'payment',
+                    'ref' => $inv->invoice_number, 'invoice_id' => $inv->id, 'debit' => 0.0, 'credit' => $total,
+                ];
+            }
+        }
+
+        $sections = [];
+        foreach ($rows as $cur => $list) {
+            usort($list, fn ($a, $b) => [$a['date'], $a['order'], $a['invoice_id']] <=> [$b['date'], $b['order'], $b['invoice_id']]);
+
+            $opening = 0.0;
+            foreach ($list as $r) {
+                if ($from && $r['date'] < $from) {
+                    $opening += $r['debit'] - $r['credit'];
+                }
+            }
+
+            $balance = $opening;
+            $debit = 0.0;
+            $credit = 0.0;
+            $entries = [];
+            foreach ($list as $r) {
+                if (($from && $r['date'] < $from) || ($to && $r['date'] > $to)) {
+                    continue;
+                }
+                $balance += $r['debit'] - $r['credit'];
+                $debit   += $r['debit'];
+                $credit  += $r['credit'];
+                $entries[] = [
+                    'date' => $r['date'], 'type' => $r['type'], 'ref' => $r['ref'], 'invoice_id' => $r['invoice_id'],
+                    'debit' => round($r['debit'], 3), 'credit' => round($r['credit'], 3), 'balance' => round($balance, 3),
+                ];
+            }
+
+            $sections[] = [
+                'currency'     => (string) $cur,
+                'opening'      => round($opening, 3),
+                'total_debit'  => round($debit, 3),
+                'total_credit' => round($credit, 3),
+                'closing'      => round($balance, 3),
+                'entries'      => $entries,
+            ];
+        }
+
+        return response()->json([
+            'status' => true,
+            'data'   => [
+                'client'   => ['id' => $client->id, 'name' => $client->name, 'company_name' => $client->company_name, 'currency' => $client->currency],
+                'from'     => $from,
+                'to'       => $to,
+                'sections' => $sections,
+            ],
+        ]);
+    }
 }

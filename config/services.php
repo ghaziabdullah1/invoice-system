@@ -40,4 +40,49 @@ return [
         ],
     ],
 
+
+    'anthropic' => [
+        'key'   => env('ANTHROPIC_API_KEY'),
+        'model' => env('ANTHROPIC_MODEL', 'claude-haiku-5-5'),
+        'base_url' => env('ANTHROPIC_BASE_URL', 'https://api.anthropic.com'),
+    ],
+
+    'whatsapp' => [
+        'token'           => env('WHATSAPP_TOKEN'),
+        'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'verify_token'    => env('WHATSAPP_VERIFY_TOKEN'),
+        'app_secret'      => env('WHATSAPP_APP_SECRET'),
+        'graph_version'   => env('WHATSAPP_GRAPH_VERSION', 'v21.0'),
+        'base_url'        => env('WHATSAPP_BASE_URL', 'https://graph.facebook.com'),
+    ],
+
+
+    'ai_agent' => [
+        'auto_reply'            => env('AI_AUTO_REPLY', false),   // false = مسودة فقط
+        'auto_reply_templates'  => env('AI_AUTO_REPLY_TEMPLATES', false), // القوالب الثابتة (تحية/شكر) تُرسل تلقائياً بلا تكلفة
+        'daily_token_cap'       => (int) env('AI_DAILY_TOKEN_CAP', 200000),
+        'hourly_limit_per_chat' => (int) env('AI_HOURLY_LIMIT', 10),
+        'max_history'           => 6,
+        'max_tokens'            => 300,
+        'max_tool_rounds'       => 4,   // أقصى جولات أدوات في الرد الواحد
+        'templates' => [
+            'greeting' => [
+                'ar' => 'أهلاً وسهلاً، كيف يمكنني مساعدتك؟',
+                'en' => 'Welcome! How can I help you?',
+            ],
+            'thanks' => [
+                'ar' => 'العفو، نحن في خدمتك.',
+                'en' => "You're welcome, we're here to help.",
+            ],
+            'unsupported' => [
+                'ar' => 'نستقبل الرسائل النصية فقط حالياً، فضلاً اكتب استفسارك.',
+                'en' => 'We only accept text messages for now, please type your question.',
+            ],
+            'busy' => [
+                'ar' => 'شكراً لتواصلك، سيرد عليك أحد موظفينا قريباً.',
+                'en' => 'Thank you for contacting us, one of our team will reply shortly.',
+            ],
+        ],
+    ],
+
 ];

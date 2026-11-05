@@ -8,6 +8,9 @@ use App\Models\Payment;
 use App\Constants\Constants;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\InvoiceDueSoonMail;
+use App\Mail\InvoiceOverdueMail;
 
 class ReportRepository implements ReportInterface
 {
@@ -337,11 +340,11 @@ class ReportRepository implements ReportInterface
                 SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as overdue_invoices,
                 SUM(CASE WHEN status = ? THEN total ELSE 0 END) as overdue_amount
             ', [
-                Constants::INVOICE_STATUS_PAID,
-                Constants::INVOICE_STATUS_PAID,
-                Constants::INVOICE_STATUS_OVERDUE,
-                Constants::INVOICE_STATUS_OVERDUE,
-            ])->first();
+                    Constants::INVOICE_STATUS_PAID,
+                    Constants::INVOICE_STATUS_PAID,
+                    Constants::INVOICE_STATUS_OVERDUE,
+                    Constants::INVOICE_STATUS_OVERDUE,
+                ])->first();
 
             return [
                 'total_invoices'   => (int)   ($invoiceStats->total_invoices   ?? 0),
@@ -374,6 +377,20 @@ class ReportRepository implements ReportInterface
         $invoice = Invoice::with('client:id,name,email')
             ->inAllowedBranches(request()->attributes->get('allowed_branch_ids'))
             ->findOrFail($invoiceId);
+
+        if (!in_array($invoice->status, [Constants::INVOICE_STATUS_SENT, Constants::INVOICE_STATUS_OVERDUE], true)) {
+            throw new \Exception('لا يمكن إرسال تذكير لفاتورة في حالتها الحالية');
+        }
+
+        if (empty($invoice->client?->email)) {
+            throw new \Exception('لا يوجد بريد إلكتروني للعميل');
+        }
+
+        $mailClass = $invoice->status === Constants::INVOICE_STATUS_OVERDUE
+            ? InvoiceOverdueMail::class
+            : InvoiceDueSoonMail::class;
+
+        Mail::to($invoice->client->email)->queue(new $mailClass($invoice));
 
         return [
             'message' => 'تم إرسال التذكير بنجاح',

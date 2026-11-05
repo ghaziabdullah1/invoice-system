@@ -11,7 +11,7 @@ class Tenant extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'unit_id', 'name', 'email', 'phone', 'id_number', 'notes', 'is_active', 'created_by',
+        'unit_id', 'client_id', 'name', 'email', 'phone', 'id_number', 'notes', 'is_active', 'created_by',
     ];
 
     protected $casts = [
@@ -26,6 +26,12 @@ class Tenant extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    // حساب الفوترة: عميل في نظام الفواتير
+    public function client()
+    {
+        return $this->belongsTo(Client::class);
     }
 
     public function scopeSearch($query, $term)
